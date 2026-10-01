@@ -16,3 +16,6 @@ export {
 export type { NodeFields, NodePatch } from './nodes'
 export { dropOnCell, dropOnBoundary, moveSlot } from './move'
 export { bulkProgress, resetLaneProgress, resetAllProgress } from './progress'
+export { computeDerivedEdges, shownNodes } from './edges'
+export type { DerivedEdge } from './edges'
+export { createTemplateFromBoard, createBoardFromTemplate, cloneBoardData } from './template'

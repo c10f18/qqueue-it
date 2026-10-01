@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ListView from '../components/ListView.vue'
+import QueueGraph from '../components/QueueGraph.vue'
 import Timetable from '../components/Timetable.vue'
 import { navigate } from '../composables/useRoute'
 import { renameBoard, setShowSlotNumbers, sortedLanes, toggleLaneActive } from '../domain'
@@ -12,6 +13,9 @@ const store = useBoardStore()
 const missing = ref(false)
 const bulkOpen = ref(false)
 const renaming = ref(false)
+const viewTab = ref<'list' | 'graph'>('list')
+// 좁은 화면에서는 그래프 패널을 기본으로 접어 둔다 (타임테이블 공간 확보)
+const showGraph = ref(window.matchMedia('(min-width: 640px)').matches)
 const nameDraft = ref('')
 
 watch(
@@ -70,6 +74,10 @@ function commitRename() {
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
         <button class="btn" @click="bulkOpen = true">일괄 진행</button>
         <label class="check">
+          <input v-model="showGraph" type="checkbox" />
+          그래프
+        </label>
+        <label class="check">
           <input
             type="checkbox"
             :checked="data.board.settings.showSlotNumbers"
@@ -92,9 +100,21 @@ function commitRename() {
       </template>
     </div>
 
-    <div class="body">
-      <Timetable v-if="mode === 'edit'" v-model:bulk-open="bulkOpen" :data="data" />
-      <ListView v-else :data="data" />
+    <!-- 수정 모드: 그래프 + 타임테이블. 가로 화면이면 위/아래, 세로 화면이면 좌/우 분할 (명세 23장) -->
+    <div v-if="mode === 'edit'" class="body edit-layout">
+      <section v-if="showGraph" class="graph-pane"><QueueGraph :data="data" /></section>
+      <section class="timetable-pane"><Timetable v-model:bulk-open="bulkOpen" :data="data" /></section>
+    </div>
+
+    <div v-else class="body view-layout">
+      <div class="view-tabs" role="tablist">
+        <button role="tab" :class="{ on: viewTab === 'list' }" @click="viewTab = 'list'">리스트</button>
+        <button role="tab" :class="{ on: viewTab === 'graph' }" @click="viewTab = 'graph'">큐 그래프</button>
+      </div>
+      <div class="view-body">
+        <ListView v-if="viewTab === 'list'" :data="data" />
+        <QueueGraph v-else :data="data" />
+      </div>
     </div>
   </div>
 
@@ -127,6 +147,59 @@ function commitRename() {
 .body {
   flex: 1;
   min-height: 0;
+}
+.edit-layout {
+  display: flex;
+  width: 100%;
+}
+/* 가로 > 세로 → 위/아래 분할, 세로 >= 가로 → 좌/우 분할 */
+@media (orientation: landscape) {
+  .edit-layout {
+    flex-direction: column;
+  }
+}
+@media (orientation: portrait) {
+  .edit-layout {
+    flex-direction: row;
+  }
+}
+.graph-pane {
+  flex: 1 1 40%;
+  min-height: 160px;
+  min-width: 140px;
+  overflow: hidden;
+}
+.timetable-pane {
+  flex: 1 1 60%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.view-layout {
+  display: flex;
+  flex-direction: column;
+}
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+}
+.view-tabs button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.view-tabs button.on {
+  background: var(--surface);
+  font-weight: 700;
+}
+.view-body {
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--border);
 }
 .seg-toggle {
   display: inline-flex;

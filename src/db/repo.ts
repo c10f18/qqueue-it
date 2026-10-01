@@ -1,7 +1,7 @@
 // 데이터 접근 어댑터. 화면/스토어는 Dexie를 직접 쓰지 않고 이 인터페이스만 쓴다.
 // 후일 서버 동기화로 교체할 때 이 파일만 바꾸면 된다. (명세 16장)
 
-import type { Board, BoardData } from '../domain'
+import type { Board, BoardData, Template } from '../domain'
 import { QQueueDB } from './db'
 
 export interface BoardSummary extends Board {
@@ -14,6 +14,9 @@ export interface BoardRepo {
   loadBoard(boardId: string): Promise<BoardData | undefined>
   saveBoard(data: BoardData): Promise<void>
   deleteBoard(boardId: string): Promise<void>
+  listTemplates(): Promise<Template[]>
+  saveTemplate(template: Template): Promise<void>
+  deleteTemplate(templateId: string): Promise<void>
 }
 
 export function createDexieRepo(db: QQueueDB = new QQueueDB()): BoardRepo {
@@ -64,6 +67,18 @@ export function createDexieRepo(db: QQueueDB = new QQueueDB()): BoardRepo {
         await db.slots.where('boardId').equals(boardId).delete()
         await db.nodes.where('boardId').equals(boardId).delete()
       })
+    },
+
+    async listTemplates() {
+      return db.templates.orderBy('updatedAt').reverse().toArray()
+    },
+
+    async saveTemplate(template) {
+      await db.templates.put(structuredClone(template))
+    },
+
+    async deleteTemplate(templateId) {
+      await db.templates.delete(templateId)
     },
   }
 }

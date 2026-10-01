@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
-import { createBoardData, createNode, updateNode } from '../domain'
+import { createBoardData, createNode, createTemplateFromBoard, updateNode } from '../domain'
 import { QQueueDB } from './db'
 import { createDexieRepo } from './repo'
 
@@ -22,5 +22,16 @@ describe('Dexie 어댑터', () => {
 
     await repo.deleteBoard(data.board.id)
     expect(await repo.loadBoard(data.board.id)).toBeUndefined()
+  })
+
+  it('템플릿 저장 → 목록 → 삭제', async () => {
+    const repo = createDexieRepo(new QQueueDB('test-db-templates'))
+    let data = createBoardData('보드')
+    data = createNode(data, data.board.slotOrder[0], data.lanes[0].id, { name: 'a' }).data
+    const template = createTemplateFromBoard(data, '템플릿')
+    await repo.saveTemplate(template)
+    expect(await repo.listTemplates()).toEqual([template])
+    await repo.deleteTemplate(template.id)
+    expect(await repo.listTemplates()).toEqual([])
   })
 })

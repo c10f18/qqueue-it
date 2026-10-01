@@ -70,9 +70,11 @@ export interface Template {
   snapshot: {
     lanes: Omit<Lane, 'id' | 'boardId'>[]
     slotCount: number
-    nodes: (Omit<TaskNode, 'id' | 'boardId' | 'slotId' | 'laneId'> & {
+    nodes: (Omit<TaskNode, 'id' | 'boardId' | 'slotId' | 'laneId' | 'linkFilter'> & {
       slotIndex: number
       laneIndex: number
+      /** 레인 ID는 새 보드에서 달라지므로 열 순서(index)로 저장한다 */
+      linkFilter: { touched: boolean; excludedLaneIndexes: number[] }
     })[]
   }
   updatedAt: number

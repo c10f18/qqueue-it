@@ -1,7 +1,16 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { createDexieRepo, type BoardRepo, type BoardSummary } from '../db/repo'
-import { createBoardData, DomainError, type BoardData, type OpResult } from '../domain'
+import {
+  cloneBoardData,
+  createBoardData,
+  createBoardFromTemplate,
+  createTemplateFromBoard,
+  DomainError,
+  type BoardData,
+  type OpResult,
+  type Template,
+} from '../domain'
 
 const MAX_HISTORY = 50 // 명세 19.3
 
@@ -19,6 +28,7 @@ export const useBoardStore = defineStore('board', () => {
   const repo: BoardRepo = createDexieRepo()
 
   const boards = shallowRef<BoardSummary[]>([])
+  const templates = shallowRef<Template[]>([])
   const current = shallowRef<BoardData | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -53,6 +63,44 @@ export const useBoardStore = defineStore('board', () => {
     await persist(data)
     await refreshBoards()
     return data.board.id
+  }
+
+  async function refreshTemplates() {
+    templates.value = await repo.listTemplates()
+  }
+
+  /** 보드 전체 복제 (FR-80): 슬롯 구조를 유지하고 진행도·횟수는 0으로 시작한다. */
+  async function cloneBoard(boardId: string): Promise<string | undefined> {
+    await saveQueue
+    const data = await repo.loadBoard(boardId)
+    if (!data) return undefined
+    const copy = cloneBoardData(data, `${data.board.name} (복제)`)
+    await persist(copy)
+    await refreshBoards()
+    return copy.board.id
+  }
+
+  /** 보드를 템플릿으로 저장 (FR-81) */
+  async function saveAsTemplate(boardId: string, name: string) {
+    await saveQueue
+    const data = await repo.loadBoard(boardId)
+    if (!data) return
+    await repo.saveTemplate(createTemplateFromBoard(data, name))
+    await refreshTemplates()
+  }
+
+  async function createBoardFromTemplateId(templateId: string, name: string): Promise<string | undefined> {
+    const template = templates.value.find((t) => t.id === templateId)
+    if (!template) return undefined
+    const data = createBoardFromTemplate(template, name)
+    await persist(data)
+    await refreshBoards()
+    return data.board.id
+  }
+
+  async function deleteTemplate(templateId: string) {
+    await repo.deleteTemplate(templateId)
+    await refreshTemplates()
   }
 
   async function deleteBoard(boardId: string) {
@@ -145,12 +193,18 @@ export const useBoardStore = defineStore('board', () => {
 
   return {
     boards,
+    templates,
     current,
     loading,
     error,
     canUndo,
     canRedo,
     refreshBoards,
+    refreshTemplates,
+    cloneBoard,
+    saveAsTemplate,
+    createBoardFromTemplateId,
+    deleteTemplate,
     createBoard,
     deleteBoard,
     openBoard,
