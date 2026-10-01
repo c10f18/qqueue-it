@@ -17,3 +17,7 @@ npm run build   # 타입체크 + 프로덕션 빌드 (dist/)
 
 앱(이 저장소)은 Cloudflare Pages로 단독 배포하고, 릴리즈노트·위키·아키텍처·개발노트는
 포트폴리오 허브 모노레포(`decalin-projects`)의 별도 문서 사이트에서 제공합니다.
+
+## 남은 작업
+
+앱 구현 후 진행할 배포·문서 사이트 작업은 [docs/TODO-deploy.md](docs/TODO-deploy.md)에 정리해 두었습니다.
