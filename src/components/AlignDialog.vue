@@ -13,7 +13,7 @@ const direction = computed(() => style.value.direction ?? 'down')
 const slotGap = computed(() => style.value.slotGap ?? GRAPH_RANGES.slotGap.default)
 const laneGap = computed(() => style.value.laneGap ?? GRAPH_RANGES.laneGap.default)
 
-// 3×3 방향 판: 가운데는 "현재 방향으로 다시 정렬".
+// 3×3 방향 판: 가운데는 노드 자리(누르는 칸이 아니다).
 const DIRECTION_GRID: ({ dir: GraphDirection; arrow: string; label: string } | null)[] = [
   { dir: 'up-left', arrow: '↖', label: '왼쪽 위로' },
   { dir: 'up', arrow: '↑', label: '위로' },
@@ -46,7 +46,7 @@ function resetGaps() {
       <h2>정렬</h2>
 
       <div class="field">
-        <span class="label">방향을 누르면 그 방향으로 정렬합니다</span>
+        <span class="label">방향을 누르면 그 방향으로 정렬하고 화면에 맞춥니다</span>
         <div class="dir-grid">
           <template v-for="(d, i) in DIRECTION_GRID" :key="i">
             <button
@@ -59,12 +59,14 @@ function resetGaps() {
             >
               {{ d.arrow }}
             </button>
-            <button v-else type="button" class="center" title="현재 방향으로 다시 정렬" aria-label="다시 정렬" @click="align(direction)">
-              ⟲
-            </button>
+            <span v-else class="center" aria-hidden="true" />
           </template>
         </div>
       </div>
+
+      <button type="button" class="btn small realign" @click="align(direction)">
+        {{ DIRECTION_GRID.find((d) => d?.dir === direction)?.arrow }} 지금 방향으로 다시 정렬
+      </button>
 
       <div class="field">
         <label for="a-slot">노드 간 간격 {{ slotGap }}</label>
@@ -137,9 +139,15 @@ input[type='range'] {
   border-color: var(--accent);
   color: #fff;
 }
+/* 가운데: 출발점 노드를 나타내는 동그라미 */
 .dir-grid .center {
-  border-style: dashed;
-  color: var(--text-dim);
-  font-size: 15px;
+  place-self: center;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--text-dim);
+  border-radius: 50%;
+}
+.realign {
+  margin-bottom: 14px;
 }
 </style>

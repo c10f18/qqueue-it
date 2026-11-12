@@ -11,6 +11,7 @@ import {
   type DoneMark,
   type EdgeHead,
   type GraphStyle,
+  type GraphView,
   GRAPH_RANGES,
   LABEL_SIZE,
   NAME_LABEL_GROUP_ID,
@@ -23,7 +24,10 @@ import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type Vie
 // Canvas 2D 직접 구현 — DOM 없이 픽셀만 그려 노드가 많아도 가볍다 (NFR-05).
 // 진행 방향·완료 표시·화살표·배경은 보드의 그래프 설정(board.settings.graph)을 따른다.
 // fitTick: 값이 바뀔 때마다 화면을 다시 맞춘다 (정렬 버튼).
-const props = defineProps<{ data: BoardData; fitTick?: number }>()
+// camera: 저장해 둔 시점. 있으면 그 시점으로 연다.
+// editable: 수정 모드. 시점을 바꾸면 camera 이벤트로 알려 저장되게 한다.
+const props = defineProps<{ data: BoardData; fitTick?: number; camera?: GraphView | null; editable?: boolean }>()
+const emit = defineEmits<{ camera: [view: GraphView] }>()
 
 const HEAD_OFFSET = 0.85 // 레인 머리글이 첫 슬롯보다 앞에 놓이는 거리(슬롯 간격 단위)
 
@@ -76,10 +80,36 @@ const layout = computed(() => {
   return { nodes, pos, heads, colorOf, edges: computeDerivedEdges(props.data) }
 })
 
-function fit() {
+// 수정 모드에서 시점이 바뀌면 조금 모았다가 한 번만 알린다 (휠 확대처럼 연달아 바뀌는 경우).
+let cameraTimer = 0
+function sendCamera() {
+  clearTimeout(cameraTimer)
+  cameraTimer = 0
+  emit('camera', { ...view.value })
+}
+function commitView() {
+  if (!props.editable) return
+  clearTimeout(cameraTimer)
+  cameraTimer = window.setTimeout(sendCamera, 200)
+}
+
+/** 이동·회전을 초기화하고 전체가 보이게 확대 배율을 맞춘다. */
+function fit(save = true) {
   const pts = [...layout.value.pos.values(), ...layout.value.heads.map((h) => h.pos)]
   view.value = { ...DEFAULT_VIEW, zoom: fitZoom(pts, size.value.w, size.value.h) }
+  if (save) commitView()
 }
+/** 시점 리셋: 보기 모드에서는 저장해 둔 시점으로, 그 밖에는 화면에 맞춘다. */
+function resetView() {
+  if (!props.editable && props.camera) view.value = { ...props.camera }
+  else fit()
+}
+/** 100%: 설정에서 정한 크기 그대로 보이는 배율 */
+function zoomActual() {
+  view.value = { ...view.value, zoom: 1 }
+  commitView()
+}
+const zoomPercent = computed(() => Math.round(view.value.zoom * 100))
 
 // ── 첨부 사진 캐시 ───────────────────────────────────────
 const images = new Map<string, HTMLImageElement>()
@@ -349,7 +379,9 @@ function resize() {
   size.value = { w, h }
   if (!sized) {
     sized = true
-    fit()
+    // 저장해 둔 시점이 있으면 그대로 열고, 없으면 화면에 맞춘다.
+    if (props.camera) view.value = { ...props.camera }
+    else fit(false)
   }
   schedule()
 }
@@ -380,6 +412,7 @@ function onPointerMove(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
   const d = drag
   drag = null
+  if (d?.moved) commitView()
   if (!d || d.moved) return
   const rect = canvas.value!.getBoundingClientRect()
   selectedId.value = hit(e.clientX - rect.left, e.clientY - rect.top)
@@ -402,6 +435,7 @@ function onWheel(e: WheelEvent) {
 function zoomBy(factor: number) {
   const v = view.value
   view.value = { ...v, zoom: Math.max(0.1, Math.min(4, v.zoom * factor)) }
+  commitView()
 }
 
 const selectedNode = computed(() => layout.value.nodes.find((n) => n.id === selectedId.value))
@@ -416,6 +450,7 @@ onUnmounted(() => {
   ro?.disconnect()
   canvas.value?.removeEventListener('wheel', onWheel)
   cancelAnimationFrame(raf)
+  if (cameraTimer) sendCamera()
 })
 
 watch([view, layout, selectedId, showLabels, style, () => props.data.board.name], schedule)
@@ -424,11 +459,11 @@ watch(layout, (l) => {
   if (selectedId.value && !l.pos.has(selectedId.value)) selectedId.value = null
 })
 // 정렬(방향·간격)을 바꾸거나 정렬 버튼을 누르거나 빈 보드에 첫 노드가 생기면 화면에 다시 맞춘다.
-watch([direction, slotGap, laneGap, () => props.fitTick], fit)
+watch([direction, slotGap, laneGap, () => props.fitTick], () => fit())
 watch(
   () => layout.value.nodes.length === 0,
   (empty, wasEmpty) => {
-    if (!empty && wasEmpty) fit()
+    if (!empty && wasEmpty) fit(false)
   },
 )
 </script>
@@ -443,7 +478,7 @@ watch(
       @pointerup="onPointerUp"
       @pointercancel="drag = null"
       @contextmenu.prevent
-      @dblclick="fit"
+      @dblclick="resetView"
     />
 
     <div class="tools">
@@ -451,7 +486,13 @@ watch(
       <button :class="{ on: mode === 'rotate' }" title="회전 (드래그, Shift 또는 우클릭 드래그도 가능)" @click="mode = 'rotate'">⟳</button>
       <button title="확대" @click="zoomBy(1.25)">＋</button>
       <button title="축소" @click="zoomBy(0.8)">－</button>
-      <button title="화면에 맞추기 (더블클릭)" @click="fit">⛶</button>
+      <button class="zoom" title="지금 확대 배율. 누르면 100%(설정한 크기 그대로)로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
+      <button
+        :title="!editable && camera ? '저장된 시점으로 되돌리기 (더블클릭)' : '시점 리셋: 이동·회전을 초기화하고 화면에 맞추기 (더블클릭)'"
+        @click="resetView"
+      >
+        ⛶
+      </button>
       <button :class="{ on: showLabels }" title="이름 표시" @click="showLabels = !showLabels">Aa</button>
     </div>
 
@@ -496,6 +537,11 @@ canvas.rotate {
   border-radius: 8px;
   background: var(--surface);
   cursor: pointer;
+}
+.tools .zoom {
+  min-width: 48px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .tools button.on {
   background: var(--accent);

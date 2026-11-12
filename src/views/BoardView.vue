@@ -51,6 +51,7 @@ watch(
   (mode) => {
     store.setAutosave(mode !== 'edit')
     renaming.value = false
+    panel.value = null
   },
   { immediate: true },
 )
@@ -231,10 +232,9 @@ onUnmounted(() => {
       </button>
       <span v-else class="chip mode-chip">수정 중</span>
 
-      <button class="btn" data-panel-toggle title="노드를 방향에 맞춰 정렬하고 간격을 조정" @click="togglePanel('align')">정렬</button>
-      <button class="btn" data-panel-toggle title="노드·라벨·완료 표시·화살표·배경" @click="togglePanel('settings')">⚙ 설정</button>
-
       <template v-if="mode === 'edit'">
+        <button class="btn" data-panel-toggle title="노드를 방향에 맞춰 정렬하고 간격을 조정" @click="togglePanel('align')">정렬</button>
+        <button class="btn" data-panel-toggle title="노드·라벨·완료 표시·화살표·배경" @click="togglePanel('settings')">⚙ 설정</button>
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
         <button class="btn" @click="bulkOpen = true">일괄 진행</button>
@@ -243,6 +243,7 @@ onUnmounted(() => {
           <button
             class="btn layout-btn"
             title="레이아웃 선택"
+            aria-label="레이아웃 선택"
             aria-haspopup="true"
             :aria-expanded="layoutOpen"
             @click="((panel = null), (layoutOpen = !layoutOpen))"
@@ -252,7 +253,6 @@ onUnmounted(() => {
               <rect v-if="currentLayout.fill" class="fill" v-bind="{ x: currentLayout.fill.x, y: currentLayout.fill.y, width: currentLayout.fill.w, height: currentLayout.fill.h }" rx="1" />
               <path v-else class="lines" d="M4.5 4.5h9M4.5 7h9M4.5 9.5h9" />
             </svg>
-            레이아웃
           </button>
 
           <div v-if="layoutOpen" class="layout-pop" role="dialog" aria-label="레이아웃 선택">
@@ -310,7 +310,7 @@ onUnmounted(() => {
     <!-- 수정 모드: 고른 레이아웃대로 그래프와 카드를 놓는다. 나눠 볼 때는 경계를 끌어 비율을 바꾼다. -->
     <div v-if="mode === 'edit'" ref="body" class="body edit-layout" :class="[layout, { resizing }]">
       <section v-if="layout !== 'cards'" class="graph-pane" :style="split ? { flexBasis: ratio * 100 + '%' } : undefined">
-        <QueueGraph :data="data" :fit-tick="fitTick" />
+        <QueueGraph :data="data" :fit-tick="fitTick" :camera="store.camera" editable @camera="store.setCamera" />
       </section>
       <div
         v-if="split"
@@ -341,7 +341,7 @@ onUnmounted(() => {
       </div>
       <div class="view-body">
         <ListView v-if="viewTab === 'list'" :data="data" />
-        <QueueGraph v-else :data="data" :fit-tick="fitTick" />
+        <QueueGraph v-else :data="data" :camera="store.camera" />
       </div>
     </div>
 

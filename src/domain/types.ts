@@ -44,6 +44,8 @@ export interface GraphStyle {
   slotGap?: number
   /** 레인 간 간격 */
   laneGap?: number
+  /** 수정 모드에서 맞춰 둔 그래프 시점(이동·회전·확대). 보기 모드는 이 시점으로 연다. 없으면 화면에 맞춘다. */
+  view?: GraphView
   /** 노드 라벨 그룹. 없으면 기본 그룹(이름) 1개 */
   labelGroups?: LabelGroup[]
 }
@@ -81,6 +83,18 @@ export function labelAngle(group: LabelGroup): number {
 export const NAME_LABEL_GROUP_ID = 'name'
 export const MAX_LABEL_GROUPS = 8
 export const LABEL_SIZE = { min: 8, max: 28, step: 1, default: 12 } as const
+
+/** 그래프를 바라보는 시점 */
+export interface GraphView {
+  /** 좌우 회전(라디안) */
+  yaw: number
+  /** 상하 회전(라디안) */
+  pitch: number
+  /** 확대 배율 (1 = 100%: 설정한 크기 그대로) */
+  zoom: number
+  panX: number
+  panY: number
+}
 
 /** 그래프 설정의 숫자 항목: 허용 범위와 기본값 */
 export const GRAPH_RANGES = {

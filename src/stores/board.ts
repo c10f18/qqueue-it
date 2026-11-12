@@ -8,6 +8,7 @@ import {
   createTemplateFromBoard,
   DomainError,
   type BoardData,
+  type GraphView,
   type OpResult,
   type Template,
 } from '../domain'
@@ -36,11 +37,24 @@ export const useBoardStore = defineStore('board', () => {
   const histories = new Map<string, History>()
   const historyState = shallowRef({ cursor: 0, length: 0 })
 
+  // 그래프 시점(이동·회전·확대)은 되돌리기 기록과 따로 들고 있다가 저장할 때 보드 설정에 합친다.
+  // (시점을 기록에 넣으면 Ctrl+Z가 작업 대신 화면 이동을 되돌리게 된다.)
+  const camera = shallowRef<GraphView | null>(null)
+  function withCamera(data: BoardData): BoardData {
+    if (!camera.value || data.board.id !== current.value?.board.id) return data
+    const settings = data.board.settings
+    return {
+      ...data,
+      board: { ...data.board, settings: { ...settings, graph: { ...settings.graph, view: camera.value } } },
+    }
+  }
+
   let gesture: string | null = null
   let saveQueue: Promise<void> = Promise.resolve()
   function persist(data: BoardData) {
+    const toSave = withCamera(data)
     saveQueue = saveQueue
-      .then(() => repo.saveBoard(data))
+      .then(() => repo.saveBoard(toSave))
       .catch((e) => {
         console.error(e)
         error.value = '저장에 실패했습니다. 브라우저 저장소를 확인해 주세요.'
@@ -69,6 +83,13 @@ export const useBoardStore = defineStore('board', () => {
     autosave.value = on
     if (on) void save()
   }
+  /** 수정 모드에서 그래프 시점을 바꿨을 때 부른다. */
+  function setCamera(view: GraphView) {
+    if (!current.value) return
+    camera.value = view
+    commit(current.value)
+  }
+
   /** 저장하지 않은 변경을 버리고 마지막으로 저장한 상태로 되돌린다. 되돌리기 기록도 비운다. */
   async function discard() {
     const id = current.value?.board.id
@@ -79,6 +100,7 @@ export const useBoardStore = defineStore('board', () => {
     const data = await repo.loadBoard(id)
     if (!data) return
     current.value = data
+    camera.value = data.board.settings.graph?.view ?? null
     const h = { stack: [data], cursor: 0 }
     histories.set(id, h)
     syncHistoryState(h)
@@ -182,6 +204,7 @@ export const useBoardStore = defineStore('board', () => {
         return false
       }
       current.value = data
+      camera.value = data.board.settings.graph?.view ?? null
       let h = histories.get(boardId)
       if (!h) {
         h = { stack: [data], cursor: 0 }
@@ -286,6 +309,8 @@ export const useBoardStore = defineStore('board', () => {
     openBoard,
     closeBoard,
     dirty,
+    camera,
+    setCamera,
     save,
     setAutosave,
     discard,
