@@ -17,6 +17,7 @@ import {
   NAME_LABEL_GROUP_ID,
 } from '../domain'
 import { laneColorOf } from '../composables/laneColor'
+import { labelFontCss } from '../graph/labelFont'
 import { place } from '../graph/layout'
 import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type View } from '../graph/projection'
 
@@ -341,11 +342,21 @@ function draw() {
         const dir = { x: Math.sin(rad), y: -Math.cos(rad) }
         const reach = r + 6 * textScale
         const SIDE = 0.38
-        ctx.font = `${Math.round((g.size ?? LABEL_SIZE.default) * textScale)}px system-ui, sans-serif`
+        ctx.font = labelFontCss(g, textScale)
         ctx.textAlign = dir.x > SIDE ? 'left' : dir.x < -SIDE ? 'right' : 'center'
         ctx.textBaseline = dir.y > SIDE ? 'top' : dir.y < -SIDE ? 'bottom' : 'middle'
         ctx.fillStyle = g.color ?? (n.id === sel ? accent : dimColor)
-        ctx.fillText(text, p.x + dir.x * reach, p.y + dir.y * reach)
+        const tx = p.x + dir.x * reach
+        const ty = p.y + dir.y * reach
+        ctx.fillText(text, tx, ty)
+        if (g.underline) {
+          // 캔버스에는 밑줄이 없어서 글자 아래에 선을 직접 긋는다.
+          const px = (g.size ?? LABEL_SIZE.default) * textScale
+          const width = ctx.measureText(text).width
+          const left = ctx.textAlign === 'left' ? tx : ctx.textAlign === 'right' ? tx - width : tx - width / 2
+          const bottom = ctx.textBaseline === 'top' ? ty + px : ctx.textBaseline === 'bottom' ? ty : ty + px / 2
+          ctx.fillRect(left, bottom + 1, width, Math.max(1, px / 14))
+        }
       }
     }
   }

@@ -15,14 +15,17 @@ import {
   type LabelGroupPatch,
 } from '../domain'
 import { useBoardStore } from '../stores/board'
-import ColorPicker from './ColorPicker.vue'
+import { labelFontCss } from '../graph/labelFont'
+import LabelFontDialog from './LabelFontDialog.vue'
 
 // 설정 패널의 "노드 라벨" 구역: 그룹 추가·삭제, 이름, 위치(8방향), 색, 크기.
 const props = defineProps<{ data: BoardData }>()
 const store = useBoardStore()
 
 const groups = computed(() => labelGroupsOf(props.data))
-const colorOpenId = ref<string | null>(null)
+// 글꼴 팝업은 한 번에 한 그룹만 연다.
+const fontOpenId = ref<string | null>(null)
+const fontGroup = computed(() => groups.value.find((g) => g.id === fontOpenId.value))
 
 function patch(id: string, p: LabelGroupPatch) {
   store.apply((d) => updateLabelGroup(d, id, p))
@@ -181,39 +184,32 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
             />
             <span class="muted">°</span>
           </label>
-          <label class="size">
-            <span class="muted">크기 {{ g.size ?? LABEL_SIZE.default }}</span>
-            <input
-              type="range"
-              :min="LABEL_SIZE.min"
-              :max="LABEL_SIZE.max"
-              :step="LABEL_SIZE.step"
-              :value="g.size ?? LABEL_SIZE.default"
-              :aria-label="`${g.name} 글자 크기`"
-              @change="patch(g.id, { size: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </label>
           <button
             type="button"
-            class="color-btn"
-            :aria-expanded="colorOpenId === g.id"
-            @click="colorOpenId = colorOpenId === g.id ? null : g.id"
+            class="font-btn"
+            :class="{ on: fontOpenId === g.id }"
+            aria-haspopup="dialog"
+            :aria-expanded="fontOpenId === g.id"
+            :title="`${g.name} 글꼴·스타일·크기·색`"
+            @click="fontOpenId = fontOpenId === g.id ? null : g.id"
           >
-            <span class="swatch" :class="{ auto: !g.color }" :style="g.color ? { background: g.color } : undefined">
-              {{ g.color ? '' : 'A' }}
+            <span
+              class="sample"
+              :style="{
+                font: labelFontCss({ ...g, size: 14 }),
+                color: g.color,
+                textDecoration: g.underline ? 'underline' : undefined,
+              }"
+            >
+              가Aa
             </span>
-            색
+            <span class="muted">{{ g.size ?? LABEL_SIZE.default }}px · 글꼴…</span>
           </button>
         </div>
       </div>
-
-      <ColorPicker
-        v-if="colorOpenId === g.id"
-        :model-value="g.color"
-        default-label="기본 글자색"
-        @update:model-value="(c) => patch(g.id, { color: c })"
-      />
     </div>
+
+    <LabelFontDialog v-if="fontGroup" :group="fontGroup" @change="(p) => patch(fontGroup!.id, p)" @close="fontOpenId = null" />
 
     <button
       type="button"
@@ -349,17 +345,24 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 .size input {
   width: 100%;
 }
-.color-btn {
+.font-btn {
   display: inline-flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   justify-self: start;
-  padding: 3px 8px;
+  max-width: 100%;
+  padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
   font-size: 12px;
   cursor: pointer;
+}
+.font-btn.on {
+  border-color: var(--accent);
+}
+.font-btn .sample {
+  color: var(--text);
 }
 .swatch {
   display: grid;

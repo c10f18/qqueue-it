@@ -92,6 +92,15 @@ describe('노드 라벨 그룹', () => {
     expect(labelGroupsOf(d)[0].visible).toBe(false)
   })
 
+  it('그룹에 글꼴과 굵게·기울임·밑줄을 지정하고 되돌린다', () => {
+    let d = build(['A'], [['a']])
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: 'serif', bold: true, italic: true, underline: true }).data
+    expect(labelGroupsOf(d)[0]).toMatchObject({ font: 'serif', bold: true, italic: true, underline: true })
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: undefined, bold: false, italic: false, underline: false }).data
+    expect(labelGroupsOf(d)[0]).toEqual({ id: NAME_LABEL_GROUP_ID, name: '이름', position: 'down' })
+    expect(() => updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: 'comic' as never })).toThrow(/글꼴/)
+  })
+
   it('빈 글자를 넣으면 라벨이 지워진다', () => {
     let d = build(['A'], [['a']])
     const r = addLabelGroup(d)

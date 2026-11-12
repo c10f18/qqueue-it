@@ -74,7 +74,14 @@ export interface LabelGroup {
   size?: number
   /** false면 그래프에 표시하지 않는다 (기본: 표시) */
   visible?: boolean
+  /** 글꼴 (기본: 고딕) */
+  font?: LabelFont
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
 }
+export type LabelFont = 'sans' | 'serif' | 'round' | 'mono'
+export const LABEL_FONT_IDS: LabelFont[] = ['sans', 'serif', 'round', 'mono']
 /** 8방향 → 각도(도, 0 = 위, 시계 방향) */
 export const DIRECTION_ANGLE: Record<GraphDirection, number> = {
   up: 0,

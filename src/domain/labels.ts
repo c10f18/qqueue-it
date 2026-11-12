@@ -2,8 +2,8 @@
 // 첫 그룹은 항상 작업 이름이고 지울 수 없다. 추가한 그룹은 노드마다 글자를 따로 입력한다.
 
 import { DomainError, draft, findNode, normalizeColor, uid } from './core'
-import { LABEL_SIZE, MAX_LABEL_GROUPS, NAME_LABEL_GROUP_ID } from './types'
-import type { BoardData, GraphDirection, LabelGroup, OpResult } from './types'
+import { LABEL_FONT_IDS, LABEL_SIZE, MAX_LABEL_GROUPS, NAME_LABEL_GROUP_ID } from './types'
+import type { BoardData, GraphDirection, LabelFont, LabelGroup, OpResult } from './types'
 
 /** 새 그룹을 놓을 방향을 고르는 순서 */
 const POSITION_ORDER: GraphDirection[] = ['down', 'up', 'right', 'left', 'down-right', 'down-left', 'up-right', 'up-left']
@@ -51,6 +51,11 @@ export interface LabelGroupPatch {
   color?: string
   size?: number
   visible?: boolean
+  /** undefined를 넣으면 기본 글꼴로 되돌린다. */
+  font?: LabelFont
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
 }
 
 /** 그룹 이름·위치·색·크기 변경. 위치는 다른 그룹과 겹쳐도 된다. */
@@ -89,6 +94,19 @@ export function updateLabelGroup(data: BoardData, groupId: string, patch: LabelG
     // 표시(기본값)일 때는 항목을 두지 않는다.
     if (patch.visible) delete group.visible
     else group.visible = false
+  }
+  if ('font' in patch) {
+    if (patch.font === undefined || patch.font === 'sans') delete group.font
+    else {
+      if (!LABEL_FONT_IDS.includes(patch.font)) throw new DomainError('invalid-argument', '잘못된 글꼴입니다.')
+      group.font = patch.font
+    }
+  }
+  // 켜진 스타일만 저장한다.
+  for (const key of ['bold', 'italic', 'underline'] as const) {
+    if (patch[key] === undefined) continue
+    if (patch[key]) group[key] = true
+    else delete group[key]
   }
   if ('size' in patch) {
     if (patch.size === undefined) delete group.size
