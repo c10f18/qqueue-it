@@ -5,9 +5,19 @@ export interface Board {
   name: string
   /** 슬롯 ID 배열. 이 순서 = 진행 순서 (FR-01, FR-04) */
   slotOrder: string[]
-  settings: { showSlotNumbers: boolean; graph?: GraphStyle }
+  settings: { showSlotNumbers: boolean; graph?: GraphStyle; list?: ListStyle }
   createdAt: number
   updatedAt: number
+}
+
+/** 보기 모드 리스트의 모습. 수정 모드의 설정에서 정하고 보기 모드는 이대로 보여 준다. */
+export interface ListStyle {
+  /** 스킨(테마) id. 없으면 기본 스킨 */
+  skin?: string
+  /** true면 플랫(슬롯당 한 행), 아니면 레이어별 */
+  flat?: boolean
+  /** 카드에 표시할 속성. 없으면 기본 속성 */
+  attrs?: string[]
 }
 
 export type GraphDirection =
@@ -175,6 +185,7 @@ export interface Template {
     lanes: Omit<Lane, 'id' | 'boardId'>[]
     slotCount: number
     graph?: GraphStyle
+    list?: ListStyle
     nodes: (Omit<TaskNode, 'id' | 'boardId' | 'slotId' | 'laneId' | 'linkFilter'> & {
       slotIndex: number
       laneIndex: number

@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { isCompleted, sortedLanes, type BoardData, type TaskNode } from '../domain'
-import { ATTR_LABELS, DEFAULT_ATTRS, type AttrKey } from '../composables/useNodeDisplay'
+import { resolveAttrs } from '../composables/useNodeDisplay'
 import { laneColorOf } from '../composables/laneColor'
 import { SKIN_MODULES, type SkinId } from './skins'
 
 const props = defineProps<{ data: BoardData }>()
 
-const flat = ref(false)
-const skin = ref<SkinId>('simple')
-const attrs = ref<AttrKey[]>([...DEFAULT_ATTRS])
-const attrKeys = Object.keys(ATTR_LABELS) as AttrKey[]
-
-const skinModule = computed(() => SKIN_MODULES[skin.value])
-// 선택 순서와 상관없이 항상 같은 순서로 표시한다.
-const orderedAttrs = computed(() => attrKeys.filter((k) => attrs.value.includes(k)))
+// 스킨(테마)·방식·표시 속성은 수정 모드의 설정에서 정해 보드에 저장한 값을 그대로 쓴다.
+const listStyle = computed(() => props.data.board.settings.list ?? {})
+const flat = computed(() => listStyle.value.flat === true)
+const skinModule = computed(() => {
+  const id = listStyle.value.skin
+  return SKIN_MODULES[id && id in SKIN_MODULES ? (id as SkinId) : 'simple']
+})
+const orderedAttrs = computed(() => resolveAttrs(listStyle.value.attrs))
 
 const allLanes = computed(() => sortedLanes(props.data))
 const lanes = computed(() => allLanes.value.filter((l) => l.active))
@@ -61,27 +61,7 @@ const showNumbers = true
 <template>
   <div class="list-view">
     <div class="controls">
-      <div class="seg-toggle" role="group" aria-label="목록 방식">
-        <button :class="{ on: !flat }" @click="flat = false">레이어별</button>
-        <button :class="{ on: flat }" @click="flat = true">플랫</button>
-      </div>
-
-      <label class="skin">
-        스킨
-        <select v-model="skin" class="input">
-          <option v-for="(m, id) in SKIN_MODULES" :key="id" :value="id">{{ m.label }}</option>
-        </select>
-      </label>
-
-      <details class="attr-picker">
-        <summary class="btn">표시 속성 ({{ attrs.length }})</summary>
-        <div class="attr-list">
-          <label v-for="k in attrKeys" :key="k">
-            <input v-model="attrs" type="checkbox" :value="k" /> {{ ATTR_LABELS[k] }}
-          </label>
-        </div>
-      </details>
-
+      <slot name="actions" />
       <span class="muted summary">{{ doneCount }} / {{ shownNodes.length }} 완료</span>
     </div>
 

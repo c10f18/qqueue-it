@@ -3,12 +3,16 @@ import { computed } from 'vue'
 import {
   GRAPH_RANGES,
   setGraphStyle,
+  setListStyle,
   type BoardData,
   type DoneMark,
   type EdgeHead,
   type GraphNumberKey,
   type GraphStyle,
+  type ListStyle,
 } from '../domain'
+import { ATTR_KEYS, ATTR_LABELS, resolveAttrs, type AttrKey } from '../composables/useNodeDisplay'
+import { SKIN_MODULES } from './skins'
 import { useBoardStore } from '../stores/board'
 import ColorPicker from './ColorPicker.vue'
 import LabelGroupsEditor from './LabelGroupsEditor.vue'
@@ -23,6 +27,17 @@ const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
 function set(patch: GraphStyle) {
   store.apply((d) => setGraphStyle(d, patch))
 }
+// 보기 모드 리스트의 테마(스킨)·방식·표시 속성
+const list = computed<ListStyle>(() => props.data.board.settings.list ?? {})
+const listAttrs = computed(() => resolveAttrs(list.value.attrs))
+function setList(patch: ListStyle) {
+  store.apply((d) => setListStyle(d, patch))
+}
+function toggleAttr(key: AttrKey) {
+  const next = listAttrs.value.includes(key) ? listAttrs.value.filter((k) => k !== key) : [...listAttrs.value, key]
+  setList({ attrs: next })
+}
+
 function num(key: GraphNumberKey): number {
   return style.value[key] ?? GRAPH_RANGES[key].default
 }
@@ -50,13 +65,45 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
     <div class="dialog" role="dialog" aria-label="설정">
       <h2>설정</h2>
 
+      <section class="first">
+        <h3>보기 모드 테마 (리스트)</h3>
+        <div class="field">
+          <label for="l-skin">테마</label>
+          <select id="l-skin" class="input" :value="list.skin ?? 'simple'" @change="setList({ skin: ($event.target as HTMLSelectElement).value })">
+            <option v-for="(m, id) in SKIN_MODULES" :key="id" :value="id">{{ m.label }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <span class="label">방식</span>
+          <div class="seg" role="radiogroup" aria-label="목록 방식">
+            <button type="button" role="radio" :aria-checked="!list.flat" :class="{ on: !list.flat }" @click="setList({ flat: undefined })">
+              레이어별
+            </button>
+            <button type="button" role="radio" :aria-checked="!!list.flat" :class="{ on: list.flat }" @click="setList({ flat: true })">
+              플랫
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">표시 속성</span>
+          <div class="attrs">
+            <label v-for="k in ATTR_KEYS" :key="k">
+              <input type="checkbox" :checked="listAttrs.includes(k)" @change="toggleAttr(k)" /> {{ ATTR_LABELS[k] }}
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>그래프</h3>
+
       <div class="field">
         <span class="label">전체 배경 색</span>
         <ColorPicker :model-value="style.background" default-label="기본 배경" @update:model-value="(v) => set({ background: v })" />
       </div>
 
       <label class="switch-row">
-        <span>그래프 바탕에 보드 이름 표시</span>
+        <span>그래프 위에 보드 이름 표시</span>
         <input
           type="checkbox"
           class="switch"
@@ -65,6 +112,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           @change="set({ showBoardName: ($event.target as HTMLInputElement).checked })"
         />
       </label>
+      </section>
 
       <section>
         <h3>노드</h3>
@@ -182,7 +230,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
         <button
           type="button"
           class="btn"
-          title="정렬(방향·간격)과 노드 라벨은 그대로 둡니다"
+          title="그래프의 색·크기·표시만 되돌립니다. 정렬(방향·간격), 노드 라벨, 보기 모드 테마는 그대로 둡니다"
           @click="
             set({
               background: undefined,
@@ -198,7 +246,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             })
           "
         >
-          기본값으로
+          그래프 기본값으로
         </button>
         <span style="flex: 1" />
         <button type="button" class="btn primary" @click="emit('close')">닫기</button>
@@ -226,9 +274,42 @@ section {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+section.first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
 h3 {
   margin: 0 0 8px;
   font-size: 14px;
+}
+.seg {
+  display: inline-flex;
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.seg button {
+  padding: 5px 14px;
+  border: 0;
+  background: var(--surface);
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent);
+  color: #fff;
+}
+.attrs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+.attrs label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
 }
 .two {
   display: grid;

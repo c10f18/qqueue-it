@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import { isCompleted, type LabelGroup, type TaskNode } from '../domain'
+import ProgressControl from './ProgressControl.vue'
 
 const props = defineProps<{
   node: TaskNode
@@ -21,7 +22,6 @@ const emit = defineEmits<{
   labelEnd: []
   stopEdit: []
   toggleDone: []
-  count: [delta: number]
   dragStart: [e: PointerEvent]
 }>()
 
@@ -132,15 +132,7 @@ function onPointerDown(e: PointerEvent) {
     />
 
     <div class="row meta">
-      <div class="bar" :title="`${node.progress}%`">
-        <div class="fill" :style="{ width: node.progress + '%' }" />
-      </div>
-      <span class="pct">{{ node.progress }}%</span>
-      <span class="counter" title="횟수">
-        <button @click.stop="emit('count', -1)" :disabled="node.count <= 0" aria-label="횟수 감소">−</button>
-        <b>{{ node.count }}</b>
-        <button @click.stop="emit('count', 1)" aria-label="횟수 증가">+</button>
-      </span>
+      <ProgressControl :node-id="node.id" :progress="node.progress" />
     </div>
 
     <div v-if="node.tags.length" class="tags">

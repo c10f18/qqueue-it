@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cloneBoardData, setGraphStyle, setLaneColor, updateNode } from './index'
+import { cloneBoardData, setGraphStyle, setLaneColor, setListStyle, updateNode } from './index'
 import { build } from './testUtils'
 
 describe('색·모양 설정', () => {
@@ -55,6 +55,15 @@ describe('색·모양 설정', () => {
     const g = setGraphStyle(d, { nodeSize: 999, slotGap: 1, laneGap: 200, edgeHeadSize: 10 }).data.board.settings.graph!
     expect(g).toEqual({ nodeSize: 40, slotGap: 60, laneGap: 200, edgeHeadSize: 3 })
     expect(() => setGraphStyle(d, { nodeSize: NaN })).toThrow(/숫자/)
+  })
+
+  it('보기 모드 리스트 설정(스킨·방식·표시 속성)을 저장하고 복제 때 함께 간다', () => {
+    let d = build(['A'], [['a']])
+    d = setListStyle(d, { skin: 'simple', flat: true, attrs: ['name', 'name', 'progress'] }).data
+    expect(d.board.settings.list).toEqual({ skin: 'simple', flat: true, attrs: ['name', 'progress'] })
+    d = setListStyle(d, { flat: undefined }).data
+    expect(d.board.settings.list).toEqual({ skin: 'simple', attrs: ['name', 'progress'] })
+    expect(cloneBoardData(d, '복제').board.settings.list).toEqual(d.board.settings.list)
   })
 
   it('복제하면 레인 색·노드 색/사진·그래프 설정이 함께 복제된다', () => {

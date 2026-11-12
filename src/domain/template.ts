@@ -14,6 +14,7 @@ export function createTemplateFromBoard(data: BoardData, name: string): Template
       lanes: lanes.map((l) => ({ name: l.name, order: l.order, active: l.active, color: l.color })),
       slotCount: data.board.slotOrder.length,
       graph: data.board.settings.graph ? structuredClone(data.board.settings.graph) : undefined,
+      list: data.board.settings.list ? structuredClone(data.board.settings.list) : undefined,
       nodes: data.nodes.map((n) => ({
         name: n.name,
         description: n.description,
@@ -62,7 +63,11 @@ export function createBoardFromTemplate(template: Template, boardName: string): 
       id: boardId,
       name: boardName.trim() || template.name,
       slotOrder: slots.map((s) => s.id),
-      settings: { showSlotNumbers: true, ...(snap.graph ? { graph: structuredClone(snap.graph) } : {}) },
+      settings: {
+        showSlotNumbers: true,
+        ...(snap.graph ? { graph: structuredClone(snap.graph) } : {}),
+        ...(snap.list ? { list: structuredClone(snap.list) } : {}),
+      },
       createdAt: now,
       updatedAt: now,
     },

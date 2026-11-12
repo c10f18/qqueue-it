@@ -35,7 +35,6 @@ async function onFile(e: Event) {
 }
 const tagsText = ref(props.node.tags.join(', '))
 const progress = ref(props.node.progress)
-const count = ref(props.node.count)
 const visible = ref(props.node.visible)
 const deadline = ref(props.node.deadline ? toDateInput(props.node.deadline) : '')
 
@@ -66,7 +65,6 @@ function save() {
     image: image.value,
     tags: tags.value,
     progress: Number(progress.value),
-    count: Number(count.value),
     visible: visible.value,
     deadline: deadline.value ? new Date(deadline.value + 'T00:00:00').getTime() : undefined,
   })
@@ -123,18 +121,12 @@ function save() {
 
       <div class="field">
         <label for="n-progress">진행도 {{ progress }}%</label>
-        <input id="n-progress" v-model.number="progress" type="range" min="0" max="100" step="5" />
+        <input id="n-progress" v-model.number="progress" type="range" min="0" max="100" step="1" />
       </div>
 
-      <div class="two">
-        <div class="field">
-          <label for="n-count">횟수</label>
-          <input id="n-count" v-model.number="count" class="input" type="number" min="0" />
-        </div>
-        <div class="field">
-          <label for="n-deadline">데드라인 (정렬용)</label>
-          <input id="n-deadline" v-model="deadline" class="input" type="date" />
-        </div>
+      <div class="field">
+        <label for="n-deadline">데드라인 (정렬용)</label>
+        <input id="n-deadline" v-model="deadline" class="input" type="date" />
       </div>
 
       <label class="check-row">

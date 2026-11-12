@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { TaskNode } from '../../../domain'
 import { useNodeDisplay, type AttrKey } from '../../../composables/useNodeDisplay'
+import ProgressControl from '../../ProgressControl.vue'
 
 // 심플 스킨 — 레이어별 모드: 칸 전체를 차지하고 선택한 속성을 모두 보여준다.
 const props = defineProps<{ node: TaskNode; visibleAttrs: AttrKey[] }>()
@@ -19,9 +20,8 @@ const rest = computed(() => fields.value.filter((f) => !['name', 'icon', 'progre
       <span v-if="has('icon') && node.icon">{{ node.icon }}</span>
       <b v-if="has('name')" class="name">{{ node.name }}</b>
     </div>
-    <div v-if="has('progress')" class="bar"><div class="fill" :style="{ width: node.progress + '%' }" /></div>
-    <dl v-if="rest.length || has('progress')">
-      <template v-if="has('progress')"><dt>진행도</dt><dd>{{ node.progress }}%</dd></template>
+    <ProgressControl v-if="has('progress')" :node-id="node.id" :progress="node.progress" />
+    <dl v-if="rest.length">
       <template v-for="f in rest" :key="f.key"><dt>{{ f.label }}</dt><dd>{{ f.value || '-' }}</dd></template>
     </dl>
   </div>

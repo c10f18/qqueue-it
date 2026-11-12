@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import {
   addLane,
-  bulkProgress,
   deleteLane,
   deleteNode,
   dropOnBoundary,
@@ -13,7 +12,6 @@ import {
   moveSlot,
   renameLane,
   reorderLane,
-  resetAllProgress,
   resetLaneProgress,
   setLaneColor,
   setLinkFilter,
@@ -31,15 +29,13 @@ import {
 import { useBoardStore } from '../stores/board'
 import { useTimetableDrag, type DropTarget } from '../composables/useTimetableDrag'
 import { laneColorOf } from '../composables/laneColor'
-import BulkProgressDialog from './BulkProgressDialog.vue'
 import DeleteLaneDialog from './DeleteLaneDialog.vue'
 import LaneHeader from './LaneHeader.vue'
 import NodeCard from './NodeCard.vue'
 import NodeContextMenu from './NodeContextMenu.vue'
 import NodeEditor from './NodeEditor.vue'
 
-const props = defineProps<{ data: BoardData; bulkOpen: boolean }>()
-const emit = defineEmits<{ 'update:bulkOpen': [open: boolean] }>()
+const props = defineProps<{ data: BoardData }>()
 
 const store = useBoardStore()
 
@@ -185,14 +181,6 @@ function laneNodeCount(laneId: string) {
   return props.data.nodes.filter((n) => n.laneId === laneId).length
 }
 
-function applyBulk(upTo: string, laneIds: string[]) {
-  emit('update:bulkOpen', false)
-  store.apply((d) => bulkProgress(d, upTo, laneIds))
-}
-function resetAll() {
-  emit('update:bulkOpen', false)
-  store.apply((d) => resetAllProgress(d))
-}
 </script>
 
 <template>
@@ -284,7 +272,6 @@ function resetAll() {
               @label-end="store.endGesture()"
               @stop-edit="editingNodeId = null"
               @toggle-done="patchNode(nodeAt(slotId, lane.id)!.id, { progress: nodeAt(slotId, lane.id)!.progress === 100 ? 0 : 100 })"
-              @count="(delta) => patchNode(nodeAt(slotId, lane.id)!.id, { count: nodeAt(slotId, lane.id)!.count + delta })"
               @drag-start="(e) => startNode(e, nodeAt(slotId, lane.id)!.id, nodeAt(slotId, lane.id)!.name)"
             />
             <button v-else class="empty-add" title="여기에 작업 추가" @click="createInCell(slotId, lane.id)">+</button>
@@ -345,14 +332,6 @@ function resetAll() {
     :node-count="laneNodeCount(deleteLaneTarget.id)"
     @confirm="confirmDeleteLane"
     @close="deleteLaneId = null"
-  />
-
-  <BulkProgressDialog
-    v-if="bulkOpen"
-    :data="data"
-    @apply="applyBulk"
-    @reset-all="resetAll"
-    @close="emit('update:bulkOpen', false)"
   />
 </template>
 

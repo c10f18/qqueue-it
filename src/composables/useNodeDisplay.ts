@@ -8,7 +8,6 @@ export type AttrKey =
   | 'tags'
   | 'icon'
   | 'progress'
-  | 'count'
   | 'completed'
   | 'deadline'
   | 'createdAt'
@@ -19,13 +18,19 @@ export const ATTR_LABELS: Record<AttrKey, string> = {
   tags: '태그',
   icon: '아이콘',
   progress: '진행도',
-  count: '횟수',
   completed: '완료',
   deadline: '데드라인',
   createdAt: '생성일',
 }
 
 export const DEFAULT_ATTRS: AttrKey[] = ['icon', 'name', 'progress']
+export const ATTR_KEYS = Object.keys(ATTR_LABELS) as AttrKey[]
+
+/** 보드에 저장된 표시 속성(문자열)을 지금 지원하는 속성만, 정해진 순서로 돌려준다. */
+export function resolveAttrs(saved: string[] | undefined): AttrKey[] {
+  if (!saved) return [...DEFAULT_ATTRS]
+  return ATTR_KEYS.filter((k) => saved.includes(k))
+}
 
 function formatDate(ms: number): string {
   const d = new Date(ms)
@@ -45,8 +50,6 @@ export function formatAttr(key: AttrKey, node: TaskNode): string {
       return formatDate(node.createdAt)
     case 'tags':
       return node.tags.join(', ')
-    case 'count':
-      return String(node.count)
     default:
       return node[key] ?? ''
   }

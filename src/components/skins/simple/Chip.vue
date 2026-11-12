@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TaskNode } from '../../../domain'
 import { useNodeDisplay, type AttrKey } from '../../../composables/useNodeDisplay'
+import ProgressControl from '../../ProgressControl.vue'
 
 // 심플 스킨 — 플랫 모드: 한 행에 여러 개가 나란히 놓이는 압축 표현.
 const props = defineProps<{ node: TaskNode; visibleAttrs: AttrKey[] }>()
@@ -15,7 +16,7 @@ const { fields, completed } = useNodeDisplay(
     <template v-for="f in fields" :key="f.key">
       <span v-if="f.key === 'icon'">{{ f.value }}</span>
       <b v-else-if="f.key === 'name'">{{ f.value }}</b>
-      <span v-else-if="f.key === 'progress'" class="pct">{{ f.value }}</span>
+      <ProgressControl v-else-if="f.key === 'progress'" :node-id="node.id" :progress="node.progress" compact />
       <span v-else-if="f.value" class="extra">{{ f.label }} {{ f.value }}</span>
     </template>
   </span>

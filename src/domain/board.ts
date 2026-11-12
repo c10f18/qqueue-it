@@ -1,6 +1,6 @@
 import { DomainError, draft, normalizeColor, uid } from './core'
 import { DEFAULT_LANE_NAME, GRAPH_RANGES } from './types'
-import type { BoardData, GraphNumberKey, GraphStyle, OpResult } from './types'
+import type { BoardData, GraphNumberKey, GraphStyle, ListStyle, OpResult } from './types'
 
 /** 새 보드: 기본 카테고리 "Default" 1개 + 최초 슬롯 1개 (FR-10, FR-62) */
 export function createBoardData(name: string): BoardData {
@@ -33,6 +33,18 @@ export function renameBoard(data: BoardData, name: string): OpResult {
 export function setShowSlotNumbers(data: BoardData, show: boolean): OpResult {
   const d = draft(data)
   d.board.settings.showSlotNumbers = show
+  return { data: d }
+}
+
+/** 보기 모드 리스트 설정 변경. patch에 undefined로 넣은 항목은 기본값으로 되돌린다. */
+export function setListStyle(data: BoardData, patch: ListStyle): OpResult {
+  const d = draft(data)
+  const next: ListStyle = { ...d.board.settings.list, ...patch }
+  if (next.attrs) next.attrs = [...new Set(next.attrs)]
+  for (const key of Object.keys(next) as (keyof ListStyle)[]) {
+    if (next[key] === undefined) delete next[key]
+  }
+  d.board.settings.list = next
   return { data: d }
 }
 

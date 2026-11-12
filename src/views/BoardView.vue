@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AlignDialog from '../components/AlignDialog.vue'
+import BulkProgressDialog from '../components/BulkProgressDialog.vue'
 import GraphSettingsDialog from '../components/GraphSettingsDialog.vue'
 import ListView from '../components/ListView.vue'
 import QueueGraph from '../components/QueueGraph.vue'
 import Timetable from '../components/Timetable.vue'
 import { navigate } from '../composables/useRoute'
-import { renameBoard, sortedLanes, toggleLaneActive } from '../domain'
+import { bulkProgress, renameBoard, resetAllProgress, sortedLanes, toggleLaneActive } from '../domain'
 import { useBoardStore } from '../stores/board'
 
 const props = defineProps<{ boardId: string; mode: 'edit' | 'view' }>()
@@ -34,6 +35,16 @@ const data = computed(() => (store.current?.board.id === props.boardId ? store.c
 const lanes = computed(() => (data.value ? sortedLanes(data.value) : []))
 const inactiveLanes = computed(() => lanes.value.filter((l) => !l.active))
 
+// 일괄 진행: 보기 모드에서만 쓴다.
+function applyBulk(upTo: string, laneIds: string[]) {
+  bulkOpen.value = false
+  store.apply((d) => bulkProgress(d, upTo, laneIds))
+}
+function resetAll() {
+  bulkOpen.value = false
+  store.apply((d) => resetAllProgress(d))
+}
+
 function startRename() {
   if (!data.value || props.mode !== 'edit') return
   nameDraft.value = data.value.board.name
@@ -52,6 +63,7 @@ watch(
     store.setAutosave(mode !== 'edit')
     renaming.value = false
     panel.value = null
+    bulkOpen.value = false
   },
   { immediate: true },
 )
@@ -232,12 +244,13 @@ onUnmounted(() => {
       </button>
       <span v-else class="chip mode-chip">수정 중</span>
 
+      <button v-if="mode === 'view'" class="btn" title="지정한 슬롯까지 한 번에 완료 처리" @click="bulkOpen = true">일괄 진행</button>
+
       <template v-if="mode === 'edit'">
-        <button class="btn" data-panel-toggle title="노드를 방향에 맞춰 정렬하고 간격을 조정" @click="togglePanel('align')">정렬</button>
-        <button class="btn" data-panel-toggle title="노드·라벨·완료 표시·화살표·배경" @click="togglePanel('settings')">⚙ 설정</button>
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
-        <button class="btn" @click="bulkOpen = true">일괄 진행</button>
+        <button class="btn" data-panel-toggle title="보기 모드 테마·노드·라벨·완료 표시·화살표·배경" @click="togglePanel('settings')">⚙ 설정</button>
+        <button class="btn" data-panel-toggle title="노드를 방향에 맞춰 정렬하고 간격을 조정" @click="togglePanel('align')">정렬</button>
 
         <div class="layout-wrap">
           <button
@@ -330,7 +343,7 @@ onUnmounted(() => {
         @keydown="resizeKey"
       />
       <section v-if="layout !== 'graph'" class="timetable-pane">
-        <Timetable v-model:bulk-open="bulkOpen" :data="data" />
+        <Timetable :data="data" />
       </section>
     </div>
 
@@ -347,6 +360,8 @@ onUnmounted(() => {
 
     <GraphSettingsDialog v-if="panel === 'settings'" :data="data" @close="panel = null" />
     <AlignDialog v-else-if="panel === 'align'" :data="data" @aligned="fitTick++" @close="panel = null" />
+
+    <BulkProgressDialog v-if="bulkOpen && mode === 'view'" :data="data" @apply="applyBulk" @reset-all="resetAll" @close="bulkOpen = false" />
 
     <div v-if="leaveOpen" class="overlay" @pointerdown.self="leaveOpen = false">
       <div class="dialog" role="alertdialog" aria-label="저장하지 않은 변경">
