@@ -53,9 +53,26 @@ export interface LabelGroup {
   name: string
   /** 노드를 기준으로 글자가 놓이는 방향 */
   position: GraphDirection
+  /** 세밀한 위치 각도(도, 0 = 위, 시계 방향). 있으면 position 대신 쓴다. */
+  angle?: number
   color?: string
   /** 글자 크기(px) */
   size?: number
+}
+/** 8방향 → 각도(도, 0 = 위, 시계 방향) */
+export const DIRECTION_ANGLE: Record<GraphDirection, number> = {
+  up: 0,
+  'up-right': 45,
+  right: 90,
+  'down-right': 135,
+  down: 180,
+  'down-left': 225,
+  left: 270,
+  'up-left': 315,
+}
+/** 라벨 그룹이 실제로 놓이는 각도 */
+export function labelAngle(group: LabelGroup): number {
+  return group.angle ?? DIRECTION_ANGLE[group.position]
 }
 export const NAME_LABEL_GROUP_ID = 'name'
 export const MAX_LABEL_GROUPS = 8

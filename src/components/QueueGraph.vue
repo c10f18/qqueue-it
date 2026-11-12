@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import {
   computeDerivedEdges,
   isCompleted,
+  labelAngle,
   labelGroupsOf,
   shownNodes,
   sortedLanes,
@@ -13,7 +14,6 @@ import {
   GRAPH_RANGES,
   LABEL_SIZE,
   NAME_LABEL_GROUP_ID,
-  type GraphDirection,
 } from '../domain'
 import { laneColorOf } from '../composables/laneColor'
 import { place } from '../graph/layout'
@@ -28,18 +28,6 @@ const props = defineProps<{ data: BoardData; fitTick?: number }>()
 const HEAD_OFFSET = 0.85 // 레인 머리글이 첫 슬롯보다 앞에 놓이는 거리(슬롯 간격 단위)
 
 const DONE_MARKS: Record<DoneMark, string> = { check: '✓', x: '✕', star: '★', dot: '●', none: '' }
-
-/** 라벨 위치(8방향) → 노드 중심에서의 방향 */
-const LABEL_DIR: Record<GraphDirection, { x: number; y: number }> = {
-  up: { x: 0, y: -1 },
-  'up-right': { x: 1, y: -1 },
-  right: { x: 1, y: 0 },
-  'down-right': { x: 1, y: 1 },
-  down: { x: 0, y: 1 },
-  'down-left': { x: -1, y: 1 },
-  left: { x: -1, y: 0 },
-  'up-left': { x: -1, y: -1 },
-}
 
 const host = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -317,12 +305,14 @@ function draw() {
           text = n.labels?.[g.id] ?? ''
         }
         if (!text) continue
-        const dir = LABEL_DIR[g.position]
-        // 대각선은 원 둘레에 붙도록 거리를 줄인다.
-        const reach = (r + 6 * textScale) * (dir.x !== 0 && dir.y !== 0 ? Math.SQRT1_2 + 0.1 : 1)
+        // 각도(0 = 위, 시계 방향)로 노드 둘레의 한 점을 잡고, 글자가 노드 바깥으로 뻗도록 정렬한다.
+        const rad = (labelAngle(g) * Math.PI) / 180
+        const dir = { x: Math.sin(rad), y: -Math.cos(rad) }
+        const reach = r + 6 * textScale
+        const SIDE = 0.38
         ctx.font = `${Math.round((g.size ?? LABEL_SIZE.default) * textScale)}px system-ui, sans-serif`
-        ctx.textAlign = dir.x > 0 ? 'left' : dir.x < 0 ? 'right' : 'center'
-        ctx.textBaseline = dir.y > 0 ? 'top' : dir.y < 0 ? 'bottom' : 'middle'
+        ctx.textAlign = dir.x > SIDE ? 'left' : dir.x < -SIDE ? 'right' : 'center'
+        ctx.textBaseline = dir.y > SIDE ? 'top' : dir.y < -SIDE ? 'bottom' : 'middle'
         ctx.fillStyle = g.color ?? (n.id === sel ? accent : dimColor)
         ctx.fillText(text, p.x + dir.x * reach, p.y + dir.y * reach)
       }

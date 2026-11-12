@@ -157,8 +157,16 @@ export const useBoardStore = defineStore('board', () => {
     syncHistoryState(undefined)
   }
 
+  // 끌어서 조정하는 동작(노브 등)은 움직이는 동안 같은 gesture 이름으로 apply를 반복 호출한다.
+  // 그동안은 되돌리기 기록을 한 칸만 쓰고 저장도 미뤘다가 endGesture()에서 한 번 저장한다.
+  let gesture: string | null = null
+  function endGesture() {
+    if (gesture && current.value) void persist(current.value)
+    gesture = null
+  }
+
   /** 모든 보드 변경은 이 함수를 거친다. 도메인 규칙 위반은 error로 알리고 상태는 그대로 둔다. */
-  function apply(op: (data: BoardData) => OpResult): string | undefined {
+  function apply(op: (data: BoardData) => OpResult, gestureKey?: string): string | undefined {
     const data = current.value
     if (!data) return undefined
     let result: OpResult
@@ -174,6 +182,14 @@ export const useBoardStore = defineStore('board', () => {
     if (result.data === data) return result.id
 
     const h = histories.get(data.board.id)!
+    if (gestureKey && gesture === gestureKey) {
+      // 같은 동작이 이어지는 중: 직전 스냅샷을 바꿔 끼운다.
+      h.stack[h.cursor] = result.data
+      current.value = result.data
+      return result.id
+    }
+    endGesture()
+    gesture = gestureKey ?? null
     h.stack.splice(h.cursor + 1)
     h.stack.push(result.data)
     if (h.stack.length > MAX_HISTORY) h.stack.shift()
@@ -181,7 +197,7 @@ export const useBoardStore = defineStore('board', () => {
     syncHistoryState(h)
 
     current.value = result.data
-    void persist(result.data)
+    if (!gestureKey) void persist(result.data)
     return result.id
   }
 
@@ -190,6 +206,7 @@ export const useBoardStore = defineStore('board', () => {
     if (!data) return
     const h = histories.get(data.board.id)
     if (!h) return
+    endGesture()
     const next = h.cursor + delta
     if (next < 0 || next >= h.stack.length) return
     h.cursor = next
@@ -225,6 +242,7 @@ export const useBoardStore = defineStore('board', () => {
     openBoard,
     closeBoard,
     apply,
+    endGesture,
     undo,
     redo,
     clearError,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addLabelGroup,
   cloneBoardData,
+  labelAngle,
   labelGroupsOf,
   removeLabelGroup,
   setGraphStyle,
@@ -61,6 +62,18 @@ describe('노드 라벨 그룹', () => {
     d = removeLabelGroup(d, r.id!).data
     expect(d.nodes[0].labels).toBeUndefined()
     expect(labelGroupsOf(d)).toHaveLength(1)
+  })
+
+  it('각도로 위치를 정할 수 있고, 방향을 고르면 각도는 지워진다', () => {
+    let d = build(['A'], [['a']])
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { angle: 372.4 }).data
+    expect(labelGroupsOf(d)[0].angle).toBe(12)
+    expect(labelAngle(labelGroupsOf(d)[0])).toBe(12)
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { angle: -90 }).data
+    expect(labelGroupsOf(d)[0].angle).toBe(270)
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { position: 'right' }).data
+    expect(labelGroupsOf(d)[0]).not.toHaveProperty('angle')
+    expect(labelAngle(labelGroupsOf(d)[0])).toBe(90)
   })
 
   it('빈 글자를 넣으면 라벨이 지워진다', () => {

@@ -43,6 +43,8 @@ export function addLabelGroup(data: BoardData): OpResult {
 export interface LabelGroupPatch {
   name?: string
   position?: GraphDirection
+  /** 0~359도. undefined를 넣으면 각도를 지우고 position으로 돌아간다. */
+  angle?: number
   color?: string
   size?: number
 }
@@ -60,6 +62,15 @@ export function updateLabelGroup(data: BoardData, groupId: string, patch: LabelG
   if (patch.position !== undefined) {
     if (!POSITION_ORDER.includes(patch.position)) throw new DomainError('invalid-argument', '잘못된 라벨 위치입니다.')
     group.position = patch.position
+    // 방향 칸을 고르면 세밀한 각도는 지운다.
+    delete group.angle
+  }
+  if ('angle' in patch) {
+    if (patch.angle === undefined) delete group.angle
+    else {
+      if (!Number.isFinite(patch.angle)) throw new DomainError('invalid-argument', '라벨 각도는 숫자여야 합니다.')
+      group.angle = ((Math.round(patch.angle) % 360) + 360) % 360
+    }
   }
   if ('color' in patch) {
     const color = normalizeColor(patch.color)

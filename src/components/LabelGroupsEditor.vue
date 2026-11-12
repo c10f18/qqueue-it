@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   addLabelGroup,
   labelGroupsOf,
+  labelAngle,
   removeLabelGroup,
   updateLabelGroup,
   LABEL_SIZE,
@@ -32,7 +33,48 @@ function rename(id: string, e: Event) {
   else input.value = current
 }
 
-// 3×3 위치 판: 가운데가 노드
+// 가운데 노브: 누른 채 돌리면 각도가 실시간으로 바뀐다.
+// 돌리는 동안은 되돌리기 기록 한 칸만 쓰도록 같은 gesture 이름으로 적용한다.
+function angleAt(e: PointerEvent): number {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const dx = e.clientX - (rect.left + rect.width / 2)
+  const dy = e.clientY - (rect.top + rect.height / 2)
+  return (Math.atan2(dx, -dy) * 180) / Math.PI
+}
+function turn(id: string, e: PointerEvent) {
+  store.apply((d) => updateLabelGroup(d, id, { angle: angleAt(e) }), `label-angle:${id}`)
+}
+let turningId: string | null = null
+function knobDown(id: string, e: PointerEvent) {
+  try {
+    // 노브 밖으로 나가도 계속 돌릴 수 있게 포인터를 붙잡는다.
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  } catch {
+    // 붙잡지 못해도 노브 위에서는 돌릴 수 있다.
+  }
+  turningId = id
+  turn(id, e)
+}
+function knobMove(id: string, e: PointerEvent) {
+  if (turningId === id) turn(id, e)
+}
+function knobUp() {
+  turningId = null
+  store.endGesture()
+}
+function knobKey(id: string, current: number, e: KeyboardEvent) {
+  const step = e.shiftKey ? 15 : 1
+  const delta = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? step : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -step : 0
+  if (!delta) return
+  e.preventDefault()
+  patch(id, { angle: current + delta })
+}
+function typeAngle(id: string, e: Event) {
+  const value = (e.target as HTMLInputElement).value
+  if (value !== '' && Number.isFinite(Number(value))) patch(id, { angle: Number(value) })
+}
+
+// 3×3 위치 판: 가운데가 노드(=각도 노브)
 const POSITIONS: (GraphDirection | null)[] = [
   'up-left', 'up', 'up-right',
   'left', null, 'right',
@@ -82,17 +124,47 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
               v-if="p"
               type="button"
               role="radio"
-              :class="{ on: g.position === p }"
-              :aria-checked="g.position === p"
+              :class="{ on: g.angle === undefined && g.position === p }"
+              :aria-checked="g.angle === undefined && g.position === p"
               :title="`노드의 ${POSITION_LABEL[p]}`"
               :aria-label="`노드의 ${POSITION_LABEL[p]}`"
               @click="patch(g.id, { position: p })"
             />
-            <span v-else class="node-dot" />
+            <span
+              v-else
+              class="knob"
+              role="slider"
+              tabindex="0"
+              aria-valuemin="0"
+              aria-valuemax="359"
+              :aria-valuenow="labelAngle(g)"
+              :aria-label="`${g.name} 위치 각도`"
+              title="누른 채 돌려서 각도 조정 (방향키: 1°, Shift+방향키: 15°)"
+              @pointerdown.prevent="knobDown(g.id, $event)"
+              @pointermove="knobMove(g.id, $event)"
+              @pointerup="knobUp"
+              @pointercancel="knobUp"
+              @keydown="knobKey(g.id, labelAngle(g), $event)"
+            >
+              <span class="needle" :style="{ transform: `rotate(${labelAngle(g)}deg)` }" />
+            </span>
           </template>
         </div>
 
         <div class="side">
+          <label class="angle">
+            <span class="muted">각도</span>
+            <input
+              class="input"
+              type="number"
+              min="0"
+              max="359"
+              :value="labelAngle(g)"
+              :aria-label="`${g.name} 위치 각도(도)`"
+              @change="typeAngle(g.id, $event)"
+            />
+            <span class="muted">°</span>
+          </label>
           <label class="size">
             <span class="muted">크기 {{ g.size ?? LABEL_SIZE.default }}</span>
             <input
@@ -166,11 +238,12 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 .pos-grid {
   display: grid;
   flex: none;
-  grid-template-columns: repeat(3, 20px);
+  grid-template-columns: 20px 48px 20px;
+  grid-template-rows: 20px 48px 20px;
+  place-items: center;
   gap: 3px;
 }
-.pos-grid button,
-.node-dot {
+.pos-grid button {
   width: 20px;
   height: 20px;
   padding: 0;
@@ -185,10 +258,54 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   background: var(--accent);
   border-color: var(--accent);
 }
-.node-dot {
+/* 각도 노브: 가운데 원이 노드, 바늘 끝의 점이 라벨 위치 */
+.knob {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--text-dim);
   border-radius: 50%;
-  border-width: 2px;
-  border-color: var(--text-dim);
+  background: var(--surface-2);
+  cursor: grab;
+  touch-action: none;
+}
+.knob:active {
+  cursor: grabbing;
+}
+.knob:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.needle {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 2px;
+  height: 20px;
+  margin-left: -1px;
+  background: var(--accent);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+.needle::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.angle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 12px;
+}
+.angle input {
+  width: 64px;
+  padding: 2px 6px;
 }
 .side {
   display: grid;
