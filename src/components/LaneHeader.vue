@@ -68,24 +68,15 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
       @keydown.esc.prevent="editing = false"
       @blur="commit"
     />
-    <span v-else class="name" :title="`${lane.name} (더블클릭으로 이름 수정)`" @dblclick="beginEdit">{{ lane.name }}</span>
+    <span v-else class="name" :title="`${lane.name} (클릭하여 이름 수정)`" @click="beginEdit">{{ lane.name }}</span>
 
     <button class="icon-btn" :title="lane.active ? '숨기기' : '보이기'" @click="emit('toggle')">
       {{ lane.active ? '👁' : '🚫' }}
     </button>
-    <button
-      class="color-btn"
-      title="색 변경"
-      aria-label="카테고리 색 변경"
-      :aria-expanded="colorOpen"
-      @click="((menuOpen = false), (colorOpen = !colorOpen))"
-    >
-      <span />
-    </button>
     <button class="icon-btn" aria-label="카테고리 메뉴" @click="((colorOpen = false), (menuOpen = !menuOpen))">⋯</button>
 
     <div v-if="menuOpen" class="dropdown" role="menu">
-      <button role="menuitem" @click="beginEdit">✏ 이름 수정</button>
+      <button role="menuitem" @click="((menuOpen = false), (colorOpen = true))">🎨 색 변경</button>
       <button
         role="menuitem"
         @click="((menuOpen = false), emit('resetProgress'))"
@@ -139,6 +130,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 700;
+  cursor: text;
 }
 .name-input {
   flex: 1;
@@ -154,35 +146,6 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
   border: 0;
   background: transparent;
   cursor: pointer;
-}
-/* 레인 색을 보여 주는 사각형. 누르면 색 선택기가 열린다. 반투명 색이 보이도록 체크무늬를 깐다. */
-.color-btn {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background-image:
-    linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%),
-    linear-gradient(45deg, #bbb 25%, #fff 25%, #fff 75%, #bbb 75%);
-  background-size: 8px 8px;
-  background-position:
-    0 0,
-    4px 4px;
-  cursor: pointer;
-  overflow: hidden;
-}
-.color-btn span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--lane, var(--accent));
-}
-.color-btn:hover,
-.color-btn[aria-expanded='true'] {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 .dropdown {
   position: absolute;

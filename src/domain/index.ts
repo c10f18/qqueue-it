@@ -14,6 +14,8 @@ export {
   normalizeTags,
 } from './nodes'
 export type { NodeFields, NodePatch } from './nodes'
+export { labelGroupsOf, addLabelGroup, updateLabelGroup, removeLabelGroup, setNodeLabel } from './labels'
+export type { LabelGroupPatch } from './labels'
 export { dropOnCell, dropOnBoundary, moveSlot } from './move'
 export { bulkProgress, resetLaneProgress, resetAllProgress } from './progress'
 export { computeDerivedEdges, shownNodes } from './edges'

@@ -9,6 +9,7 @@ import {
   dropOnCell,
   duplicateNode,
   insertNodeBeside,
+  labelGroupsOf,
   moveSlot,
   renameLane,
   reorderLane,
@@ -16,11 +17,13 @@ import {
   resetLaneProgress,
   setLaneColor,
   setLinkFilter,
+  setNodeLabel,
   sortedLanes,
   toggleLaneActive,
   updateNode,
   createNode,
   MAX_LANES,
+  NAME_LABEL_GROUP_ID,
   type BoardData,
   type DeleteLaneMode,
   type NodePatch,
@@ -135,6 +138,7 @@ function addBeside(nodeId: string, position: 'above' | 'below') {
   const id = store.apply((d) => insertNodeBeside(d, nodeId, position))
   if (id) editingNodeId.value = id
 }
+const extraLabelGroups = computed(() => labelGroupsOf(props.data).filter((g) => g.id !== NAME_LABEL_GROUP_ID))
 function patchNode(nodeId: string, patch: NodePatch) {
   store.apply((d) => updateNode(d, nodeId, patch))
 }
@@ -265,12 +269,14 @@ function resetAll() {
             <NodeCard
               v-if="nodeAt(slotId, lane.id)"
               :node="nodeAt(slotId, lane.id)!"
+              :label-groups="extraLabelGroups"
               :editing="editingNodeId === nodeAt(slotId, lane.id)!.id"
               :dragging="drag.active && drag.id === nodeAt(slotId, lane.id)!.id"
               @open="editorNodeId = nodeAt(slotId, lane.id)!.id"
               @menu="(e) => openMenu(nodeAt(slotId, lane.id)!.id, e)"
               @add-below="addBeside(nodeAt(slotId, lane.id)!.id, 'below')"
               @rename="(name) => patchNode(nodeAt(slotId, lane.id)!.id, { name })"
+              @label="(gid, text) => store.apply((d) => setNodeLabel(d, nodeAt(slotId, lane.id)!.id, gid, text))"
               @stop-edit="editingNodeId = null"
               @toggle-done="patchNode(nodeAt(slotId, lane.id)!.id, { progress: nodeAt(slotId, lane.id)!.progress === 100 ? 0 : 100 })"
               @count="(delta) => patchNode(nodeAt(slotId, lane.id)!.id, { count: nodeAt(slotId, lane.id)!.count + delta })"

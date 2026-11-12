@@ -42,7 +42,24 @@ export interface GraphStyle {
   slotGap?: number
   /** 레인 간 간격 */
   laneGap?: number
+  /** 노드 라벨 그룹. 없으면 기본 그룹(이름) 1개 */
+  labelGroups?: LabelGroup[]
 }
+
+/** 노드 둘레에 표시하는 글자 줄 하나의 설정 */
+export interface LabelGroup {
+  /** 첫 그룹(작업 이름)은 NAME_LABEL_GROUP_ID */
+  id: string
+  name: string
+  /** 노드를 기준으로 글자가 놓이는 방향 */
+  position: GraphDirection
+  color?: string
+  /** 글자 크기(px) */
+  size?: number
+}
+export const NAME_LABEL_GROUP_ID = 'name'
+export const MAX_LABEL_GROUPS = 8
+export const LABEL_SIZE = { min: 8, max: 28, step: 1, default: 12 } as const
 
 /** 그래프 설정의 숫자 항목: 허용 범위와 기본값 */
 export const GRAPH_RANGES = {
@@ -94,6 +111,8 @@ export interface TaskNode {
   image?: string
   /** 최대 5개 (명세 17.4) */
   tags: string[]
+  /** 추가 라벨 그룹별 글자 (그룹 id → 글자) */
+  labels?: Record<string, string>
   /** 0~100. 100이면 완료 (FR-53) — 완료여부는 저장하지 않는다 */
   progress: number
   /** 순수 카운터 (FR-54) */

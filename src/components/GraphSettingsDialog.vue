@@ -11,6 +11,7 @@ import {
 } from '../domain'
 import { useBoardStore } from '../stores/board'
 import ColorPicker from './ColorPicker.vue'
+import LabelGroupsEditor from './LabelGroupsEditor.vue'
 
 // 그래프 전체에 적용되는 표시 설정. 바꾸는 즉시 그래프에 반영되고 되돌리기(Ctrl+Z) 대상이다.
 // 방향·간격은 여기가 아니라 "정렬" 패널(AlignDialog)에서 다룬다.
@@ -78,6 +79,11 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             @change="set({ showProgress: ($event.target as HTMLInputElement).checked })"
           />
         </label>
+      </section>
+
+      <section>
+        <h3>노드 라벨</h3>
+        <LabelGroupsEditor :data="data" />
       </section>
 
       <section>
@@ -165,7 +171,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
         <button
           type="button"
           class="btn"
-          title="정렬(방향·간격)은 그대로 둡니다"
+          title="정렬(방향·간격)과 노드 라벨은 그대로 둡니다"
           @click="
             set({
               background: undefined,

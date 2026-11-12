@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import { isCompleted, type TaskNode } from '../domain'
+import { isCompleted, type LabelGroup, type TaskNode } from '../domain'
 
 const props = defineProps<{
   node: TaskNode
+  /** 이름 외에 추가한 라벨 그룹. 그룹마다 입력 줄이 하나씩 생긴다. */
+  labelGroups: LabelGroup[]
   editing: boolean
   dragging: boolean
 }>()
@@ -13,6 +15,7 @@ const emit = defineEmits<{
   menu: [e: MouseEvent]
   addBelow: []
   rename: [name: string]
+  label: [groupId: string, text: string]
   stopEdit: []
   toggleDone: []
   count: [delta: number]
@@ -88,6 +91,20 @@ function onPointerDown(e: PointerEvent) {
         ✓
       </button>
     </div>
+
+    <input
+      v-for="g in labelGroups"
+      :key="g.id"
+      class="label-input"
+      maxlength="40"
+      :value="node.labels?.[g.id] ?? ''"
+      :placeholder="g.name"
+      :title="`${g.name} (그래프에서 노드 옆에 표시)`"
+      :aria-label="g.name"
+      @click.stop
+      @change="emit('label', g.id, ($event.target as HTMLInputElement).value)"
+      @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+    />
 
     <div class="row meta">
       <div class="bar" :title="`${node.progress}%`">
@@ -178,6 +195,22 @@ function onPointerDown(e: PointerEvent) {
   border: 1px solid var(--accent);
   border-radius: 6px;
   background: var(--surface);
+}
+.label-input {
+  min-width: 0;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  user-select: text;
+}
+.label-input:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  outline: none;
 }
 .check {
   flex: none;
