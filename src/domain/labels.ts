@@ -50,6 +50,7 @@ export interface LabelGroupPatch {
   angle?: number
   color?: string
   size?: number
+  visible?: boolean
 }
 
 /** 그룹 이름·위치·색·크기 변경. 위치는 다른 그룹과 겹쳐도 된다. */
@@ -83,6 +84,11 @@ export function updateLabelGroup(data: BoardData, groupId: string, patch: LabelG
     const color = normalizeColor(patch.color)
     if (color) group.color = color
     else delete group.color
+  }
+  if (patch.visible !== undefined) {
+    // 표시(기본값)일 때는 항목을 두지 않는다.
+    if (patch.visible) delete group.visible
+    else group.visible = false
   }
   if ('size' in patch) {
     if (patch.size === undefined) delete group.size

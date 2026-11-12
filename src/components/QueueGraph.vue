@@ -297,6 +297,7 @@ function draw() {
     if (labelOk && r > 8) {
       const textScale = Math.max(0.8, Math.min(1.2, p.scale))
       for (const g of groups) {
+        if (g.visible === false) continue
         let text: string
         if (g.id === NAME_LABEL_GROUP_ID) {
           const label = n.name.length > 14 ? n.name.slice(0, 13) + '…' : n.name

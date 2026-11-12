@@ -58,6 +58,8 @@ export interface LabelGroup {
   color?: string
   /** 글자 크기(px) */
   size?: number
+  /** false면 그래프에 표시하지 않는다 (기본: 표시) */
+  visible?: boolean
 }
 /** 8방향 → 각도(도, 0 = 위, 시계 방향) */
 export const DIRECTION_ANGLE: Record<GraphDirection, number> = {

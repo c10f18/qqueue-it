@@ -95,7 +95,7 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 
 <template>
   <div class="groups">
-    <div v-for="g in groups" :key="g.id" class="group">
+    <div v-for="g in groups" :key="g.id" class="group" :class="{ off: g.visible === false }">
       <div class="row">
         <span v-if="g.id === NAME_LABEL_GROUP_ID" class="fixed-name" title="첫 그룹은 작업 이름을 표시하며 이름을 바꿀 수 없습니다">
           {{ NAME_LABEL_GROUP_NAME }}
@@ -109,7 +109,18 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
           @change="rename(g.id, $event)"
           @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
         />
-        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="muted hint">작업 이름 · 고정</span>
+        <button
+          type="button"
+          class="btn ghost small"
+          role="switch"
+          :aria-checked="g.visible !== false"
+          :title="g.visible === false ? '그래프에 보이기' : '그래프에서 숨기기'"
+          :aria-label="`${g.name} 그래프에 표시`"
+          @click="patch(g.id, { visible: g.visible === false })"
+        >
+          {{ g.visible === false ? '🚫' : '👁' }}
+        </button>
+        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="muted hint">고정</span>
         <button
           v-else
           type="button"
@@ -235,6 +246,12 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 .name {
   flex: 1;
   min-width: 0;
+}
+/* 숨긴 그룹은 흐리게 보여 준다 (보이기 버튼은 또렷하게) */
+.group.off > :not(:first-child),
+.group.off .name,
+.group.off .fixed-name {
+  opacity: 0.45;
 }
 .fixed-name {
   flex: 1;

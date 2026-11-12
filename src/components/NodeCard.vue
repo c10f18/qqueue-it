@@ -118,10 +118,11 @@ function onPointerDown(e: PointerEvent) {
       v-for="g in labelGroups"
       :key="g.id"
       class="label-input"
+      :class="{ off: g.visible === false }"
       maxlength="40"
       :value="labelValue(g.id)"
       :placeholder="g.name"
-      :title="`${g.name} (그래프에서 노드 옆에 표시)`"
+      :title="g.visible === false ? `${g.name} (숨긴 그룹: 그래프에 표시되지 않음)` : `${g.name} (그래프에서 노드 옆에 표시)`"
       :aria-label="g.name"
       @click.stop
       @focus="onLabelFocus(g.id)"
@@ -230,6 +231,10 @@ function onPointerDown(e: PointerEvent) {
   color: var(--text);
   font-size: 12px;
   user-select: text;
+}
+.label-input.off {
+  opacity: 0.5;
+  font-style: italic;
 }
 .label-input:focus {
   border-color: var(--accent);

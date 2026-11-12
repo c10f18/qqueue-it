@@ -79,6 +79,19 @@ describe('노드 라벨 그룹', () => {
     expect(labelAngle(labelGroupsOf(d)[0])).toBe(90)
   })
 
+  it('그룹을 숨기고 다시 보이게 한다 (입력한 글자는 유지)', () => {
+    let d = build(['A'], [['a']])
+    const r = addLabelGroup(d)
+    d = setNodeLabel(r.data, 'a', r.id!, '메모').data
+    d = updateLabelGroup(d, r.id!, { visible: false }).data
+    expect(labelGroupsOf(d)[1].visible).toBe(false)
+    expect(d.nodes[0].labels).toEqual({ [r.id!]: '메모' })
+    d = updateLabelGroup(d, r.id!, { visible: true }).data
+    expect(labelGroupsOf(d)[1]).not.toHaveProperty('visible')
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { visible: false }).data
+    expect(labelGroupsOf(d)[0].visible).toBe(false)
+  })
+
   it('빈 글자를 넣으면 라벨이 지워진다', () => {
     let d = build(['A'], [['a']])
     const r = addLabelGroup(d)
