@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-// 색 선택기: 기본값(지정 안 함) / 투명 / 팔레트 / 직접 선택 + 불투명도.
-// 값 형식은 '#rrggbb', '#rrggbbaa', 'transparent', 또는 undefined(기본값).
+// 색 선택기: 기본값(지정 안 함) / 팔레트 / 직접 선택 + 불투명도.
+// 투명은 따로 고르지 않고 불투명도를 0%로 내려서 만든다.
+// 값 형식은 '#rrggbb', '#rrggbbaa', 또는 undefined(기본값). 예전 데이터의 'transparent'는 불투명도 0%로 보여 준다.
 const props = defineProps<{
   modelValue: string | undefined
   /** "기본값" 버튼의 설명 (예: 테마 색) */
@@ -52,13 +53,6 @@ function setAlpha(e: Event) {
       >
         A
       </button>
-      <button
-        type="button"
-        class="sw checker"
-        :class="{ on: isTransparent }"
-        title="투명"
-        @click="emit('update:modelValue', 'transparent')"
-      />
       <button
         v-for="c in SWATCHES"
         :key="c"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import AlignDialog from '../components/AlignDialog.vue'
 import GraphSettingsDialog from '../components/GraphSettingsDialog.vue'
 import ListView from '../components/ListView.vue'
 import QueueGraph from '../components/QueueGraph.vue'
@@ -14,7 +15,10 @@ const store = useBoardStore()
 const missing = ref(false)
 const bulkOpen = ref(false)
 const renaming = ref(false)
-const graphSettingsOpen = ref(false)
+// 오른쪽에 붙는 패널은 한 번에 하나만 연다.
+const panel = ref<'settings' | 'align' | null>(null)
+// 정렬을 누를 때마다 올려서 그래프가 화면을 다시 맞추게 한다.
+const fitTick = ref(0)
 const viewTab = ref<'list' | 'graph'>('list')
 // 좁은 화면에서는 그래프 패널을 기본으로 접어 둔다 (타임테이블 공간 확보)
 const showGraph = ref(window.matchMedia('(min-width: 640px)').matches)
@@ -71,7 +75,8 @@ function commitRename() {
         <button :class="{ on: mode === 'view' }" @click="navigate({ name: 'view', boardId })">보기</button>
       </div>
 
-      <button class="btn" title="방향·완료 표시·화살표·배경" @click="graphSettingsOpen = !graphSettingsOpen">🎨 그래프 설정</button>
+      <button class="btn" title="노드를 방향에 맞춰 정렬하고 간격을 조정" @click="panel = panel === 'align' ? null : 'align'">정렬</button>
+      <button class="btn" title="노드·완료 표시·화살표·배경" @click="panel = panel === 'settings' ? null : 'settings'">⚙ 설정</button>
 
       <template v-if="mode === 'edit'">
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
@@ -106,7 +111,7 @@ function commitRename() {
 
     <!-- 수정 모드: 그래프 + 타임테이블. 가로 화면이면 위/아래, 세로 화면이면 좌/우 분할 (명세 23장) -->
     <div v-if="mode === 'edit'" class="body edit-layout">
-      <section v-if="showGraph" class="graph-pane"><QueueGraph :data="data" /></section>
+      <section v-if="showGraph" class="graph-pane"><QueueGraph :data="data" :fit-tick="fitTick" /></section>
       <section class="timetable-pane"><Timetable v-model:bulk-open="bulkOpen" :data="data" /></section>
     </div>
 
@@ -117,11 +122,12 @@ function commitRename() {
       </div>
       <div class="view-body">
         <ListView v-if="viewTab === 'list'" :data="data" />
-        <QueueGraph v-else :data="data" />
+        <QueueGraph v-else :data="data" :fit-tick="fitTick" />
       </div>
     </div>
 
-    <GraphSettingsDialog v-if="graphSettingsOpen" :data="data" @close="graphSettingsOpen = false" />
+    <GraphSettingsDialog v-if="panel === 'settings'" :data="data" @close="panel = null" />
+    <AlignDialog v-else-if="panel === 'align'" :data="data" @aligned="fitTick++" @close="panel = null" />
   </div>
 
   <p v-else class="muted loading">불러오는 중…</p>

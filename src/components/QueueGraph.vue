@@ -9,6 +9,7 @@ import {
   type DoneMark,
   type EdgeHead,
   type GraphStyle,
+  GRAPH_RANGES,
 } from '../domain'
 import { laneColorOf } from '../composables/laneColor'
 import { place } from '../graph/layout'
@@ -17,11 +18,9 @@ import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type Vie
 // 큐 그래프 (FR-60, FR-74): 슬롯×레인 좌표에 노드를 놓고 파생 엣지를 화살표로 그린다.
 // Canvas 2D 직접 구현 — DOM 없이 픽셀만 그려 노드가 많아도 가볍다 (NFR-05).
 // 진행 방향·완료 표시·화살표·배경은 보드의 그래프 설정(board.settings.graph)을 따른다.
-const props = defineProps<{ data: BoardData }>()
+// fitTick: 값이 바뀔 때마다 화면을 다시 맞춘다 (정렬 버튼).
+const props = defineProps<{ data: BoardData; fitTick?: number }>()
 
-const SLOT_GAP = 130
-const LANE_GAP = 150
-const NODE_R = 16
 const HEAD_OFFSET = 0.85 // 레인 머리글이 첫 슬롯보다 앞에 놓이는 거리(슬롯 간격 단위)
 
 const DONE_MARKS: Record<DoneMark, string> = { check: '✓', x: '✕', star: '★', dot: '●', none: '' }
@@ -36,6 +35,9 @@ const showLabels = ref(true)
 
 const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
 const direction = computed(() => style.value.direction ?? 'down')
+const slotGap = computed(() => style.value.slotGap ?? GRAPH_RANGES.slotGap.default)
+const laneGap = computed(() => style.value.laneGap ?? GRAPH_RANGES.laneGap.default)
+const nodeR = computed(() => style.value.nodeSize ?? GRAPH_RANGES.nodeSize.default)
 
 // ── 레이아웃: 슬롯/레인 순번과 진행 방향으로 좌표가 정해진다 ──
 const layout = computed(() => {
@@ -50,7 +52,7 @@ const layout = computed(() => {
     return laneColorOf(allLanes[idx], idx)
   }
 
-  const at = (slot: number, lane: number): Point3 => ({ ...place(direction.value, slot, lane, SLOT_GAP, LANE_GAP), z: 0 })
+  const at = (slot: number, lane: number): Point3 => ({ ...place(direction.value, slot, lane, slotGap.value, laneGap.value), z: 0 })
   const pos = new Map<string, Point3>()
   for (const n of nodes) pos.set(n.id, at(slotRow.get(n.slotId)!, laneCol.get(n.laneId)!))
   const heads = lanes.map((l) => ({ name: l.name, color: colorOf(l.id), pos: at(-HEAD_OFFSET, laneCol.get(l.id)!) }))
@@ -117,6 +119,7 @@ function drawEdge(
   color: string,
   width: number,
   headKind: EdgeHead,
+  headSize: number,
 ) {
   const dx = b.x - a.x
   const dy = b.y - a.y
@@ -128,7 +131,7 @@ function drawEdge(
   const sy = a.y + uy * ra
   const ex = b.x - ux * (rb + 2)
   const ey = b.y - uy * (rb + 2)
-  const head = Math.max(6, 5 + width * 2.2)
+  const head = Math.max(6, 5 + width * 2.2) * headSize
 
   ctx.strokeStyle = color
   ctx.fillStyle = color
@@ -162,7 +165,7 @@ function drawEdge(
     ctx.stroke()
   } else if (headKind === 'dot') {
     ctx.beginPath()
-    ctx.arc(ex, ey, Math.max(2.5, width * 1.6), 0, Math.PI * 2)
+    ctx.arc(ex, ey, Math.max(2.5, width * 1.6) * headSize, 0, Math.PI * 2)
     ctx.fill()
   }
 }
@@ -187,6 +190,8 @@ function draw() {
   const edgeColor = st.edgeColor ?? cssVar(cv, '--border', '#ccc')
   const edgeWidth = st.edgeWidth ?? 1.5
   const edgeHead = st.edgeHead ?? 'arrow'
+  const edgeHeadSize = st.edgeHeadSize ?? GRAPH_RANGES.edgeHeadSize.default
+  const NODE_R = nodeR.value
   const showProgress = st.showProgress ?? true
 
   const project = makeProjector(view.value, w, h)
@@ -220,6 +225,7 @@ function draw() {
       hot ? accent : edgeColor,
       hot ? edgeWidth + 0.8 : edgeWidth,
       edgeHead,
+      edgeHeadSize,
     )
   }
 
@@ -347,7 +353,7 @@ function hit(mx: number, my: number): string | null {
   let best: { id: string; depth: number } | null = null
   for (const n of layout.value.nodes) {
     const p = project(layout.value.pos.get(n.id)!)
-    if (Math.hypot(p.x - mx, p.y - my) <= NODE_R * p.scale + 4 && (!best || p.depth < best.depth)) {
+    if (Math.hypot(p.x - mx, p.y - my) <= nodeR.value * p.scale + 4 && (!best || p.depth < best.depth)) {
       best = { id: n.id, depth: p.depth }
     }
   }
@@ -381,8 +387,8 @@ watch([view, layout, selectedId, showLabels, style], schedule)
 watch(layout, (l) => {
   if (selectedId.value && !l.pos.has(selectedId.value)) selectedId.value = null
 })
-// 방향이 바뀌거나 빈 보드에 첫 노드가 생기면 화면에 다시 맞춘다.
-watch(direction, fit)
+// 정렬(방향·간격)을 바꾸거나 정렬 버튼을 누르거나 빈 보드에 첫 노드가 생기면 화면에 다시 맞춘다.
+watch([direction, slotGap, laneGap, () => props.fitTick], fit)
 watch(
   () => layout.value.nodes.length === 0,
   (empty, wasEmpty) => {

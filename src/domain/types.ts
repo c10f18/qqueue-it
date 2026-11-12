@@ -33,8 +33,26 @@ export interface GraphStyle {
   edgeColor?: string
   edgeHead?: EdgeHead
   edgeWidth?: number
+  /** 화살표 끝 크기 배율 (1 = 기본) */
+  edgeHeadSize?: number
   background?: string
+  /** 노드 반지름(px) */
+  nodeSize?: number
+  /** 슬롯(노드) 간 간격 */
+  slotGap?: number
+  /** 레인 간 간격 */
+  laneGap?: number
 }
+
+/** 그래프 설정의 숫자 항목: 허용 범위와 기본값 */
+export const GRAPH_RANGES = {
+  edgeWidth: { min: 0.5, max: 8, step: 0.5, default: 1.5 },
+  edgeHeadSize: { min: 0.5, max: 3, step: 0.25, default: 1 },
+  nodeSize: { min: 8, max: 40, step: 2, default: 16 },
+  slotGap: { min: 60, max: 320, step: 10, default: 130 },
+  laneGap: { min: 60, max: 320, step: 10, default: 150 },
+} as const
+export type GraphNumberKey = keyof typeof GRAPH_RANGES
 
 export interface Lane {
   id: string

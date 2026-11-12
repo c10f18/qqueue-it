@@ -1,6 +1,6 @@
 import { DomainError, draft, normalizeColor, uid } from './core'
-import { DEFAULT_LANE_NAME } from './types'
-import type { BoardData, GraphStyle, OpResult } from './types'
+import { DEFAULT_LANE_NAME, GRAPH_RANGES } from './types'
+import type { BoardData, GraphNumberKey, GraphStyle, OpResult } from './types'
 
 /** 새 보드: 기본 카테고리 "Default" 1개 + 최초 슬롯 1개 (FR-10, FR-62) */
 export function createBoardData(name: string): BoardData {
@@ -43,9 +43,11 @@ export function setGraphStyle(data: BoardData, patch: GraphStyle): OpResult {
   for (const key of ['doneColor', 'edgeColor', 'background'] as const) {
     if (key in patch) next[key] = normalizeColor(patch[key])
   }
-  if (next.edgeWidth !== undefined) {
-    if (!Number.isFinite(next.edgeWidth)) throw new DomainError('invalid-argument', '선 두께는 숫자여야 합니다.')
-    next.edgeWidth = Math.min(8, Math.max(0.5, next.edgeWidth))
+  for (const key of Object.keys(GRAPH_RANGES) as GraphNumberKey[]) {
+    const value = next[key]
+    if (value === undefined) continue
+    if (!Number.isFinite(value)) throw new DomainError('invalid-argument', '크기·간격·두께는 숫자여야 합니다.')
+    next[key] = Math.min(GRAPH_RANGES[key].max, Math.max(GRAPH_RANGES[key].min, value))
   }
   for (const key of Object.keys(next) as (keyof GraphStyle)[]) {
     if (next[key] === undefined) delete next[key]

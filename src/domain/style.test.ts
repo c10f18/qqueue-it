@@ -50,6 +50,13 @@ describe('색·모양 설정', () => {
     expect(() => setGraphStyle(d, { background: 'blue' })).toThrow(/색/)
   })
 
+  it('노드 크기·간격·화살표 끝 크기도 범위 안으로 제한된다', () => {
+    const d = build(['A'], [['a']])
+    const g = setGraphStyle(d, { nodeSize: 999, slotGap: 1, laneGap: 200, edgeHeadSize: 10 }).data.board.settings.graph!
+    expect(g).toEqual({ nodeSize: 40, slotGap: 60, laneGap: 200, edgeHeadSize: 3 })
+    expect(() => setGraphStyle(d, { nodeSize: NaN })).toThrow(/숫자/)
+  })
+
   it('복제하면 레인 색·노드 색/사진·그래프 설정이 함께 복제된다', () => {
     let d = build(['A'], [['a']])
     d = setLaneColor(d, 'lane-A', '#112233').data
