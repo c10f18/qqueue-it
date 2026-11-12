@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import type { Lane } from '../domain'
+import ColorPicker from './ColorPicker.vue'
 
 const props = defineProps<{
   lane: Lane
@@ -14,6 +15,7 @@ const emit = defineEmits<{
   toggle: []
   remove: []
   resetProgress: []
+  color: [value: string | undefined]
   dragStart: [e: PointerEvent]
 }>()
 
@@ -21,6 +23,7 @@ const editing = ref(!!props.startEditing)
 const draftName = ref(props.lane.name)
 const input = ref<HTMLInputElement | null>(null)
 const menuOpen = ref(false)
+const colorOpen = ref(false)
 const root = ref<HTMLElement | null>(null)
 
 async function beginEdit() {
@@ -40,7 +43,9 @@ function commit() {
 }
 
 function onDocDown(e: PointerEvent) {
-  if (menuOpen.value && !root.value?.contains(e.target as Node)) menuOpen.value = false
+  if (root.value?.contains(e.target as Node)) return
+  menuOpen.value = false
+  colorOpen.value = false
 }
 onMounted(() => {
   document.addEventListener('pointerdown', onDocDown, true)
@@ -72,6 +77,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
 
     <div v-if="menuOpen" class="dropdown" role="menu">
       <button role="menuitem" @click="beginEdit">✏ 이름 수정</button>
+      <button role="menuitem" @click="((menuOpen = false), (colorOpen = true))">🎨 색 변경</button>
       <button
         role="menuitem"
         @click="((menuOpen = false), emit('resetProgress'))"
@@ -87,6 +93,11 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
       >
         🗑 삭제
       </button>
+    </div>
+
+    <div v-if="colorOpen" class="dropdown color-pop">
+      <ColorPicker :model-value="lane.color" default-label="기본 색" @update:model-value="(c) => emit('color', c)" />
+      <button class="btn small" @click="colorOpen = false">닫기</button>
     </div>
   </div>
 </template>
@@ -168,5 +179,17 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
 }
 .danger {
   color: var(--danger);
+}
+.color-pop {
+  display: grid;
+  gap: 8px;
+  width: 250px;
+  padding: 10px;
+}
+.dropdown.color-pop button.btn {
+  width: auto;
+  justify-self: end;
+  border: 1px solid var(--border);
+  text-align: center;
 }
 </style>

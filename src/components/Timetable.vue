@@ -14,6 +14,7 @@ import {
   reorderLane,
   resetAllProgress,
   resetLaneProgress,
+  setLaneColor,
   setLinkFilter,
   sortedLanes,
   toggleLaneActive,
@@ -26,7 +27,7 @@ import {
 } from '../domain'
 import { useBoardStore } from '../stores/board'
 import { useTimetableDrag, type DropTarget } from '../composables/useTimetableDrag'
-import { laneColor } from '../composables/laneColor'
+import { laneColorOf } from '../composables/laneColor'
 import BulkProgressDialog from './BulkProgressDialog.vue'
 import DeleteLaneDialog from './DeleteLaneDialog.vue'
 import LaneHeader from './LaneHeader.vue'
@@ -59,7 +60,7 @@ const gridStyle = computed(() => ({
 }))
 function laneStyle(laneId: string) {
   const idx = allLanes.value.findIndex((l) => l.id === laneId)
-  return { '--lane': laneColor(idx) }
+  return { '--lane': laneColorOf(allLanes.value[idx], idx) }
 }
 
 // ── 편집 상태 ─────────────────────────────────────────────
@@ -209,6 +210,7 @@ function resetAll() {
             @toggle="store.apply((d) => toggleLaneActive(d, lane.id))"
             @remove="deleteLaneId = lane.id"
             @reset-progress="store.apply((d) => resetLaneProgress(d, lane.id))"
+            @color="(c) => store.apply((d) => setLaneColor(d, lane.id, c))"
             @drag-start="(e) => startLane(e, lane.id, lane.name)"
           />
         </div>

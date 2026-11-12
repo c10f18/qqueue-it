@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { MAX_TAGS, normalizeTags, type Lane, type NodePatch, type TaskNode } from '../domain'
+import { fileToThumbnail } from '../composables/imageFile'
+import ColorPicker from './ColorPicker.vue'
 
 const props = defineProps<{ node: TaskNode; lane: Lane | undefined }>()
 const emit = defineEmits<{
@@ -15,6 +17,22 @@ const EMOJIS = ['📚', '📝', '💻', '🏃', '🎯', '🔥', '⭐', '🌱', '
 const name = ref(props.node.name)
 const description = ref(props.node.description ?? '')
 const icon = ref(props.node.icon ?? '')
+const color = ref<string | undefined>(props.node.color)
+const image = ref<string | undefined>(props.node.image)
+const imageError = ref('')
+
+async function onFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    imageError.value = ''
+    image.value = await fileToThumbnail(file)
+  } catch (err) {
+    imageError.value = err instanceof Error ? err.message : '이미지를 첨부할 수 없습니다.'
+  }
+}
 const tagsText = ref(props.node.tags.join(', '))
 const progress = ref(props.node.progress)
 const count = ref(props.node.count)
@@ -44,6 +62,8 @@ function save() {
     name: name.value,
     description: description.value.trim() || undefined,
     icon: icon.value.trim() || undefined,
+    color: color.value,
+    image: image.value,
     tags: tags.value,
     progress: Number(progress.value),
     count: Number(count.value),
@@ -75,6 +95,24 @@ function save() {
           <button v-for="e in EMOJIS" :key="e" type="button" class="btn ghost small" @click="icon = e">{{ e }}</button>
           <button type="button" class="btn ghost small" @click="icon = ''">지우기</button>
         </div>
+      </div>
+
+      <div class="field">
+        <span class="label">단색 (그래프 노드와 카드의 원 색)</span>
+        <ColorPicker v-model="color" default-label="색 없음" />
+      </div>
+
+      <div class="field">
+        <span class="label">사진 (첨부하면 아이콘 대신 표시)</span>
+        <div class="photo">
+          <span v-if="image" class="photo-preview" :style="{ backgroundImage: `url(${image})` }" />
+          <label class="btn small">
+            {{ image ? '사진 바꾸기' : '사진 첨부' }}
+            <input type="file" accept="image/*" hidden @change="onFile" />
+          </label>
+          <button v-if="image" type="button" class="btn ghost small" @click="image = undefined">사진 지우기</button>
+        </div>
+        <span v-if="imageError" class="err">{{ imageError }}</span>
       </div>
 
       <div class="field">
@@ -123,6 +161,19 @@ function save() {
 }
 .icon-input {
   width: 72px;
+}
+.photo {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.photo-preview {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
 }
 .two {
   display: grid;

@@ -60,7 +60,12 @@ function onPointerDown(e: PointerEvent) {
   >
     <div class="row">
       <span class="grip" title="끌어서 이동" aria-hidden="true">⠿</span>
-      <span v-if="node.icon" class="icon">{{ node.icon }}</span>
+      <span
+        v-if="node.image || node.color"
+        class="thumb"
+        :style="{ background: node.color, backgroundImage: node.image ? `url(${node.image})` : undefined }"
+      />
+      <span v-if="node.icon && !node.image" class="icon">{{ node.icon }}</span>
       <input
         v-if="editing"
         ref="input"
@@ -144,6 +149,15 @@ function onPointerDown(e: PointerEvent) {
 }
 .icon {
   flex: none;
+}
+.thumb {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
 }
 .name {
   flex: 1;

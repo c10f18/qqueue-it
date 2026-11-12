@@ -11,12 +11,15 @@ export function createTemplateFromBoard(data: BoardData, name: string): Template
     id: uid(),
     name: name.trim() || data.board.name,
     snapshot: {
-      lanes: lanes.map((l) => ({ name: l.name, order: l.order, active: l.active })),
+      lanes: lanes.map((l) => ({ name: l.name, order: l.order, active: l.active, color: l.color })),
       slotCount: data.board.slotOrder.length,
+      graph: data.board.settings.graph ? { ...data.board.settings.graph } : undefined,
       nodes: data.nodes.map((n) => ({
         name: n.name,
         description: n.description,
         icon: n.icon,
+        color: n.color,
+        image: n.image,
         tags: [...n.tags],
         progress: n.progress,
         count: n.count,
@@ -44,14 +47,21 @@ export function createBoardFromTemplate(template: Template, boardName: string): 
   const snap = template.snapshot
 
   const slots = Array.from({ length: Math.max(1, snap.slotCount) }, () => ({ id: uid(), boardId }))
-  const lanes = snap.lanes.map((l) => ({ id: uid(), boardId, name: l.name, order: l.order, active: l.active }))
+  const lanes = snap.lanes.map((l) => ({
+    id: uid(),
+    boardId,
+    name: l.name,
+    order: l.order,
+    active: l.active,
+    ...(l.color ? { color: l.color } : {}),
+  }))
 
   return {
     board: {
       id: boardId,
       name: boardName.trim() || template.name,
       slotOrder: slots.map((s) => s.id),
-      settings: { showSlotNumbers: true },
+      settings: { showSlotNumbers: true, ...(snap.graph ? { graph: { ...snap.graph } } : {}) },
       createdAt: now,
       updatedAt: now,
     },
@@ -65,6 +75,8 @@ export function createBoardFromTemplate(template: Template, boardName: string): 
       name: n.name,
       description: n.description,
       icon: n.icon,
+      color: n.color,
+      image: n.image,
       tags: [...n.tags],
       progress: 0,
       count: 0,

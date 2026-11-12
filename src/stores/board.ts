@@ -114,6 +114,20 @@ export const useBoardStore = defineStore('board', () => {
     await refreshBoards()
   }
 
+  /** 여러 보드를 한 번에 삭제 (목록의 선택 삭제·전체 삭제) */
+  async function deleteBoards(boardIds: string[]) {
+    await saveQueue
+    for (const id of boardIds) {
+      await repo.deleteBoard(id)
+      histories.delete(id)
+    }
+    if (current.value && boardIds.includes(current.value.board.id)) {
+      current.value = null
+      syncHistoryState(undefined)
+    }
+    await refreshBoards()
+  }
+
   async function openBoard(boardId: string): Promise<boolean> {
     if (current.value?.board.id === boardId) return true
     loading.value = true
@@ -207,6 +221,7 @@ export const useBoardStore = defineStore('board', () => {
     deleteTemplate,
     createBoard,
     deleteBoard,
+    deleteBoards,
     openBoard,
     closeBoard,
     apply,

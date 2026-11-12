@@ -1,17 +1,30 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { computeDerivedEdges, isCompleted, shownNodes, sortedLanes, type BoardData } from '../domain'
-import { laneColor } from '../composables/laneColor'
+import {
+  computeDerivedEdges,
+  isCompleted,
+  shownNodes,
+  sortedLanes,
+  type BoardData,
+  type DoneMark,
+  type EdgeHead,
+  type GraphStyle,
+} from '../domain'
+import { laneColorOf } from '../composables/laneColor'
+import { place } from '../graph/layout'
 import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type View } from '../graph/projection'
 
-// 큐 그래프 (FR-60, FR-74): 슬롯(행)×레인(열) 좌표에 노드를 놓고 파생 엣지를 화살표로 그린다.
+// 큐 그래프 (FR-60, FR-74): 슬롯×레인 좌표에 노드를 놓고 파생 엣지를 화살표로 그린다.
 // Canvas 2D 직접 구현 — DOM 없이 픽셀만 그려 노드가 많아도 가볍다 (NFR-05).
+// 진행 방향·완료 표시·화살표·배경은 보드의 그래프 설정(board.settings.graph)을 따른다.
 const props = defineProps<{ data: BoardData }>()
 
-const DX = 170
-const DY = 96
-const NODE_R = 15
-const HEAD_OFFSET = DY * 0.8 // 레인 머리글이 첫 행 위로 떨어진 거리
+const SLOT_GAP = 130
+const LANE_GAP = 150
+const NODE_R = 16
+const HEAD_OFFSET = 0.85 // 레인 머리글이 첫 슬롯보다 앞에 놓이는 거리(슬롯 간격 단위)
+
+const DONE_MARKS: Record<DoneMark, string> = { check: '✓', x: '✕', star: '★', dot: '●', none: '' }
 
 const host = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -21,34 +34,58 @@ const mode = ref<'pan' | 'rotate'>('pan')
 const selectedId = ref<string | null>(null)
 const showLabels = ref(true)
 
-// ── 레이아웃: 슬롯/레인 위치로 좌표가 정해진다 ───────────────
+const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
+const direction = computed(() => style.value.direction ?? 'down')
+
+// ── 레이아웃: 슬롯/레인 순번과 진행 방향으로 좌표가 정해진다 ──
 const layout = computed(() => {
-  const lanes = sortedLanes(props.data).filter((l) => l.active)
   const allLanes = sortedLanes(props.data)
+  const lanes = allLanes.filter((l) => l.active)
   const laneCol = new Map(lanes.map((l, i) => [l.id, i]))
   const nodes = shownNodes(props.data)
   const slots = props.data.board.slotOrder.filter((id) => nodes.some((n) => n.slotId === id))
   const slotRow = new Map(slots.map((id, i) => [id, i]))
-
-  const cx = ((lanes.length - 1) * DX) / 2
-  // 머리글까지 포함한 영역의 중앙을 원점으로 삼는다
-  const cy = (Math.max(slots.length - 1, 0) * DY - HEAD_OFFSET) / 2
-  const pos = new Map<string, Point3>()
-  for (const n of nodes) {
-    pos.set(n.id, { x: laneCol.get(n.laneId)! * DX - cx, y: slotRow.get(n.slotId)! * DY - cy, z: 0 })
+  const colorOf = (laneId: string) => {
+    const idx = allLanes.findIndex((x) => x.id === laneId)
+    return laneColorOf(allLanes[idx], idx)
   }
-  const heads = lanes.map((l) => ({
-    name: l.name,
-    color: laneColor(allLanes.findIndex((x) => x.id === l.id)),
-    pos: { x: laneCol.get(l.id)! * DX - cx, y: -HEAD_OFFSET - cy, z: 0 } as Point3,
-  }))
-  const colorOf = (laneId: string) => laneColor(allLanes.findIndex((x) => x.id === laneId))
+
+  const at = (slot: number, lane: number): Point3 => ({ ...place(direction.value, slot, lane, SLOT_GAP, LANE_GAP), z: 0 })
+  const pos = new Map<string, Point3>()
+  for (const n of nodes) pos.set(n.id, at(slotRow.get(n.slotId)!, laneCol.get(n.laneId)!))
+  const heads = lanes.map((l) => ({ name: l.name, color: colorOf(l.id), pos: at(-HEAD_OFFSET, laneCol.get(l.id)!) }))
+
+  // 머리글까지 포함한 영역의 중앙을 원점으로 옮긴다.
+  const all = [...pos.values(), ...heads.map((h) => h.pos)]
+  if (all.length) {
+    const xs = all.map((p) => p.x)
+    const ys = all.map((p) => p.y)
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+    for (const p of all) {
+      p.x -= cx
+      p.y -= cy
+    }
+  }
   return { nodes, pos, heads, colorOf, edges: computeDerivedEdges(props.data) }
 })
 
 function fit() {
   const pts = [...layout.value.pos.values(), ...layout.value.heads.map((h) => h.pos)]
   view.value = { ...DEFAULT_VIEW, zoom: fitZoom(pts, size.value.w, size.value.h) }
+}
+
+// ── 첨부 사진 캐시 ───────────────────────────────────────
+const images = new Map<string, HTMLImageElement>()
+function imageFor(src: string): HTMLImageElement | null {
+  let img = images.get(src)
+  if (!img) {
+    img = new Image()
+    img.onload = schedule
+    img.src = src
+    images.set(src, img)
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null
 }
 
 // ── 그리기 ───────────────────────────────────────────────
@@ -65,7 +102,13 @@ function cssVar(el: Element, name: string, fallback: string) {
   return getComputedStyle(el).getPropertyValue(name).trim() || fallback
 }
 
-function drawArrow(
+/** 색이 (거의) 투명한지 — 그 위에 얹는 글자색을 고를 때 쓴다 */
+function isSeeThrough(color: string): boolean {
+  if (color === 'transparent') return true
+  return color.length === 9 && parseInt(color.slice(7, 9), 16) < 128
+}
+
+function drawEdge(
   ctx: CanvasRenderingContext2D,
   a: { x: number; y: number },
   b: { x: number; y: number },
@@ -73,6 +116,7 @@ function drawArrow(
   rb: number,
   color: string,
   width: number,
+  headKind: EdgeHead,
 ) {
   const dx = b.x - a.x
   const dy = b.y - a.y
@@ -84,20 +128,43 @@ function drawArrow(
   const sy = a.y + uy * ra
   const ex = b.x - ux * (rb + 2)
   const ey = b.y - uy * (rb + 2)
+  const head = Math.max(6, 5 + width * 2.2)
+
   ctx.strokeStyle = color
   ctx.fillStyle = color
   ctx.lineWidth = width
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  // 채운 화살표는 선이 촉 안쪽에서 끝나야 끝이 뭉툭해지지 않는다.
+  const lineEnd = headKind === 'arrow' ? head * 0.8 : 0
   ctx.beginPath()
   ctx.moveTo(sx, sy)
-  ctx.lineTo(ex, ey)
+  ctx.lineTo(ex - ux * lineEnd, ey - uy * lineEnd)
   ctx.stroke()
-  const head = Math.max(5, 7 * Math.min(1.5, width))
-  ctx.beginPath()
-  ctx.moveTo(ex, ey)
-  ctx.lineTo(ex - ux * head - uy * head * 0.55, ey - uy * head + ux * head * 0.55)
-  ctx.lineTo(ex - ux * head + uy * head * 0.55, ey - uy * head - ux * head * 0.55)
-  ctx.closePath()
-  ctx.fill()
+
+  const lx = ex - ux * head - uy * head * 0.55
+  const ly = ey - uy * head + ux * head * 0.55
+  const rx = ex - ux * head + uy * head * 0.55
+  const ry = ey - uy * head - ux * head * 0.55
+  if (headKind === 'arrow') {
+    ctx.beginPath()
+    ctx.moveTo(ex, ey)
+    ctx.lineTo(lx, ly)
+    ctx.lineTo(rx, ry)
+    ctx.closePath()
+    ctx.fill()
+  } else if (headKind === 'open') {
+    ctx.beginPath()
+    ctx.moveTo(lx, ly)
+    ctx.lineTo(ex, ey)
+    ctx.lineTo(rx, ry)
+    ctx.stroke()
+  } else if (headKind === 'dot') {
+    ctx.beginPath()
+    ctx.arc(ex, ey, Math.max(2.5, width * 1.6), 0, Math.PI * 2)
+    ctx.fill()
+  }
 }
 
 function draw() {
@@ -114,8 +181,13 @@ function draw() {
   const dimColor = cssVar(cv, '--text-dim', '#777')
   const surface = cssVar(cv, '--surface', '#fff')
   const accent = cssVar(cv, '--accent', '#4b6bfb')
-  const ok = cssVar(cv, '--ok', '#2f9e6b')
-  const borderColor = cssVar(cv, '--border', '#ccc')
+  const st = style.value
+  const doneColor = st.doneColor ?? cssVar(cv, '--ok', '#2f9e6b')
+  const doneMark = DONE_MARKS[st.doneMark ?? 'check']
+  const edgeColor = st.edgeColor ?? cssVar(cv, '--border', '#ccc')
+  const edgeWidth = st.edgeWidth ?? 1.5
+  const edgeHead = st.edgeHead ?? 'arrow'
+  const showProgress = st.showProgress ?? true
 
   const project = makeProjector(view.value, w, h)
   const { nodes, pos, heads, colorOf, edges } = layout.value
@@ -128,10 +200,8 @@ function draw() {
   ctx.textBaseline = 'middle'
   for (const hd of heads) {
     const p = project(hd.pos)
-    ctx.fillStyle = hd.color
-    ctx.globalAlpha = 0.9
+    ctx.fillStyle = hd.color === 'transparent' ? dimColor : hd.color
     ctx.fillText(hd.name, p.x, p.y)
-    ctx.globalAlpha = 1
   }
 
   // 엣지 (선택된 노드와 이어진 것은 강조)
@@ -141,7 +211,16 @@ function draw() {
     const b = proj.get(e.to)
     if (!a || !b) continue
     const hot = sel !== null && (e.from === sel || e.to === sel)
-    drawArrow(ctx, a, b, NODE_R * a.scale, NODE_R * b.scale, hot ? accent : borderColor, hot ? 2.2 : 1.4)
+    drawEdge(
+      ctx,
+      a,
+      b,
+      NODE_R * a.scale,
+      NODE_R * b.scale,
+      hot ? accent : edgeColor,
+      hot ? edgeWidth + 0.8 : edgeWidth,
+      edgeHead,
+    )
   }
 
   // 노드: 먼 것부터 그려 가까운 것이 위에 오게 한다
@@ -150,41 +229,70 @@ function draw() {
   for (const n of order) {
     const p = proj.get(n.id)!
     const r = NODE_R * p.scale
-    const color = colorOf(n.laneId)
+    const laneCol = colorOf(n.laneId)
     const done = isCompleted(n)
+    const img = n.image ? imageFor(n.image) : null
 
+    // 채움: 사진 > 단색 > 기본
     ctx.beginPath()
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
-    ctx.fillStyle = done ? ok : surface
+    ctx.fillStyle = n.color ?? surface
     ctx.fill()
+    if (img) {
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+      ctx.clip()
+      ctx.drawImage(img, p.x - r, p.y - r, r * 2, r * 2)
+      ctx.restore()
+    }
+    if (done) {
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = doneColor
+      ctx.globalAlpha = img ? 0.65 : 1
+      ctx.fill()
+      ctx.globalAlpha = 1
+    }
+
+    // 테두리
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
     ctx.lineWidth = Math.max(1, 2.5 * p.scale)
-    ctx.strokeStyle = n.id === sel ? accent : color
+    ctx.strokeStyle = n.id === sel ? accent : laneCol
     ctx.stroke()
 
-    if (!done && n.progress > 0) {
+    // 진행률 링
+    if (showProgress && !done && n.progress > 0) {
       ctx.beginPath()
-      ctx.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * n.progress) / 100)
-      ctx.lineWidth = Math.max(2, 4 * p.scale)
-      ctx.strokeStyle = color
+      ctx.arc(p.x, p.y, r + 3 * p.scale, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * n.progress) / 100)
+      ctx.lineWidth = Math.max(2, 3.5 * p.scale)
+      ctx.strokeStyle = laneCol === 'transparent' ? accent : laneCol
       ctx.stroke()
     }
 
+    // 가운데 글자: 완료 표시 또는 아이콘
     if (r > 7) {
-      ctx.font = `${Math.round(r * 0.95)}px system-ui, sans-serif`
-      ctx.fillStyle = done ? '#fff' : textColor
-      ctx.fillText(done ? '✓' : (n.icon ?? ''), p.x, p.y + 1)
+      const glyph = done ? doneMark : img ? '' : (n.icon ?? '')
+      if (glyph) {
+        ctx.font = `${Math.round(r * 0.95)}px system-ui, sans-serif`
+        ctx.fillStyle = done ? (isSeeThrough(doneColor) && !img ? textColor : '#fff') : textColor
+        ctx.fillText(glyph, p.x, p.y + 1)
+      }
     }
     if (labelOk && r > 8) {
       ctx.font = `${Math.max(10, Math.min(14, 12 * p.scale))}px system-ui, sans-serif`
       ctx.fillStyle = n.id === sel ? accent : dimColor
       const label = n.name.length > 14 ? n.name.slice(0, 13) + '…' : n.name
-      ctx.fillText(label, p.x, p.y + r + 11 * Math.max(0.8, p.scale))
+      const text = showProgress && !done && n.progress > 0 ? `${label} ${n.progress}%` : label
+      ctx.fillText(text, p.x, p.y + r + 13 * Math.max(0.8, p.scale))
     }
   }
 }
 
 // ── 크기 / 반응형: window가 아니라 이 패널 자체를 관찰한다 (명세 23.2) ──
 let ro: ResizeObserver | null = null
+let sized = false
 function resize() {
   const el = host.value
   const cv = canvas.value
@@ -196,9 +304,11 @@ function resize() {
   cv.height = Math.floor(h * dpr)
   cv.style.width = w + 'px'
   cv.style.height = h + 'px'
-  const first = size.value.w === 300 && size.value.h === 300
   size.value = { w, h }
-  if (first) fit()
+  if (!sized) {
+    sized = true
+    fit()
+  }
   schedule()
 }
 
@@ -266,12 +376,13 @@ onUnmounted(() => {
   cancelAnimationFrame(raf)
 })
 
-watch([view, layout, selectedId, showLabels], schedule, { deep: false })
+watch([view, layout, selectedId, showLabels, style], schedule)
 // 선택한 노드가 삭제·숨김 처리되면 선택을 푼다.
 watch(layout, (l) => {
   if (selectedId.value && !l.pos.has(selectedId.value)) selectedId.value = null
 })
-// 노드 구성이 바뀌어 처음 그려질 때는 화면에 맞춘다.
+// 방향이 바뀌거나 빈 보드에 첫 노드가 생기면 화면에 다시 맞춘다.
+watch(direction, fit)
 watch(
   () => layout.value.nodes.length === 0,
   (empty, wasEmpty) => {
@@ -281,7 +392,7 @@ watch(
 </script>
 
 <template>
-  <div ref="host" class="graph-host">
+  <div ref="host" class="graph-host" :style="style.background ? { background: style.background } : undefined">
     <canvas
       ref="canvas"
       :class="mode"
@@ -329,12 +440,11 @@ canvas.rotate {
 .tools {
   position: absolute;
   top: 8px;
-  right: 8px;
+  left: 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   max-width: calc(100% - 16px);
-  justify-content: flex-end;
 }
 .tools button {
   min-width: 30px;

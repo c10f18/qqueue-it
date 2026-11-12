@@ -4,6 +4,7 @@ import {
   DomainError,
   cleanupEmptySlots,
   draft,
+  normalizeColor,
   requireLane,
   slotIndex,
   sortedLanes,
@@ -42,6 +43,16 @@ export function renameLane(data: BoardData, laneId: string, name: string): OpRes
   const d = draft(data)
   const lane = requireLane(d, laneId)
   lane.name = normalizeLaneName(d, name, laneId)
+  return { data: d }
+}
+
+/** 레인 색 지정. undefined면 기본 색으로 되돌린다. */
+export function setLaneColor(data: BoardData, laneId: string, color: string | undefined): OpResult {
+  const d = draft(data)
+  const lane = requireLane(d, laneId)
+  const c = normalizeColor(color)
+  if (c) lane.color = c
+  else delete lane.color
   return { data: d }
 }
 

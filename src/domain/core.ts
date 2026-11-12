@@ -22,6 +22,15 @@ export class DomainError extends Error {
   }
 }
 
+const COLOR_RE = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i
+
+/** 색 값 검증: '#rrggbb', '#rrggbbaa', 'transparent'만 허용. 빈 값은 "지정 안 함". */
+export function normalizeColor(value: string | undefined): string | undefined {
+  if (value === undefined || value === '') return undefined
+  if (value === 'transparent' || COLOR_RE.test(value)) return value.toLowerCase()
+  throw new DomainError('invalid-argument', `잘못된 색 값입니다: ${value}`)
+}
+
 export function uid(): string {
   return crypto.randomUUID()
 }

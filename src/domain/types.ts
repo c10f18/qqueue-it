@@ -5,9 +5,35 @@ export interface Board {
   name: string
   /** 슬롯 ID 배열. 이 순서 = 진행 순서 (FR-01, FR-04) */
   slotOrder: string[]
-  settings: { showSlotNumbers: boolean }
+  settings: { showSlotNumbers: boolean; graph?: GraphStyle }
   createdAt: number
   updatedAt: number
+}
+
+export type GraphDirection =
+  | 'up'
+  | 'up-right'
+  | 'right'
+  | 'down-right'
+  | 'down'
+  | 'down-left'
+  | 'left'
+  | 'up-left'
+export type DoneMark = 'check' | 'x' | 'star' | 'dot' | 'none'
+export type EdgeHead = 'arrow' | 'open' | 'dot' | 'none'
+
+/** 큐 그래프 표시 설정. 비어 있는 항목은 기본값(테마 색)을 쓴다. 색은 '#rrggbb', '#rrggbbaa', 'transparent'. */
+export interface GraphStyle {
+  /** 슬롯이 진행되는 방향 (8방향) */
+  direction?: GraphDirection
+  doneColor?: string
+  doneMark?: DoneMark
+  /** 노드에 진행률 링을 표시할지 */
+  showProgress?: boolean
+  edgeColor?: string
+  edgeHead?: EdgeHead
+  edgeWidth?: number
+  background?: string
 }
 
 export interface Lane {
@@ -19,6 +45,8 @@ export interface Lane {
   order: number
   /** FR-15 */
   active: boolean
+  /** 사용자가 고른 레인 색. 없으면 순서별 기본 색 */
+  color?: string
 }
 
 export interface Slot {
@@ -42,6 +70,10 @@ export interface TaskNode {
   name: string
   description?: string
   icon?: string
+  /** 노드 단색 채움 */
+  color?: string
+  /** 첨부 사진 (축소한 data URL) */
+  image?: string
   /** 최대 5개 (명세 17.4) */
   tags: string[]
   /** 0~100. 100이면 완료 (FR-53) — 완료여부는 저장하지 않는다 */
@@ -70,6 +102,7 @@ export interface Template {
   snapshot: {
     lanes: Omit<Lane, 'id' | 'boardId'>[]
     slotCount: number
+    graph?: GraphStyle
     nodes: (Omit<TaskNode, 'id' | 'boardId' | 'slotId' | 'laneId' | 'linkFilter'> & {
       slotIndex: number
       laneIndex: number

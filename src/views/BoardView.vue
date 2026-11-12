@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import GraphSettingsDialog from '../components/GraphSettingsDialog.vue'
 import ListView from '../components/ListView.vue'
 import QueueGraph from '../components/QueueGraph.vue'
 import Timetable from '../components/Timetable.vue'
@@ -13,6 +14,7 @@ const store = useBoardStore()
 const missing = ref(false)
 const bulkOpen = ref(false)
 const renaming = ref(false)
+const graphSettingsOpen = ref(false)
 const viewTab = ref<'list' | 'graph'>('list')
 // 좁은 화면에서는 그래프 패널을 기본으로 접어 둔다 (타임테이블 공간 확보)
 const showGraph = ref(window.matchMedia('(min-width: 640px)').matches)
@@ -69,6 +71,8 @@ function commitRename() {
         <button :class="{ on: mode === 'view' }" @click="navigate({ name: 'view', boardId })">보기</button>
       </div>
 
+      <button class="btn" title="방향·완료 표시·화살표·배경" @click="graphSettingsOpen = !graphSettingsOpen">🎨 그래프 설정</button>
+
       <template v-if="mode === 'edit'">
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
@@ -116,6 +120,8 @@ function commitRename() {
         <QueueGraph v-else :data="data" />
       </div>
     </div>
+
+    <GraphSettingsDialog v-if="graphSettingsOpen" :data="data" @close="graphSettingsOpen = false" />
   </div>
 
   <p v-else class="muted loading">불러오는 중…</p>

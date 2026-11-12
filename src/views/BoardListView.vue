@@ -1,18 +1,88 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { navigate } from '../composables/useRoute'
 import { useBoardStore } from '../stores/board'
 
 const store = useBoardStore()
 const newName = ref('')
-const confirmId = ref<string | null>(null)
 const notice = ref('')
 
+// ── ⋯ 메뉴 ───────────────────────────────────────────────
+const menuId = ref<string | null>(null)
+function onDocDown(e: PointerEvent) {
+  if (!(e.target as HTMLElement).closest('.more-wrap')) menuId.value = null
+}
+
+// ── 선택 삭제 모드 ───────────────────────────────────────
+const selecting = ref(false)
+const selected = ref(new Set<string>())
+const allSelected = computed(() => store.boards.length > 0 && selected.value.size === store.boards.length)
+
+function toggleSelecting() {
+  selecting.value = !selecting.value
+  selected.value = new Set()
+  menuId.value = null
+}
+function toggleOne(id: string) {
+  const next = new Set(selected.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selected.value = next
+}
+function toggleAll() {
+  selected.value = allSelected.value ? new Set() : new Set(store.boards.map((b) => b.id))
+}
+
+// ── 확인/이름 입력 대화상자 ──────────────────────────────
+type Dialog =
+  | { kind: 'delete'; ids: string[]; title: string }
+  | { kind: 'template'; boardId: string; name: string }
+  | { kind: 'fromTemplate'; templateId: string; name: string }
+const dialog = ref<Dialog | null>(null)
+
+function askDelete(ids: string[], title: string) {
+  menuId.value = null
+  if (ids.length) dialog.value = { kind: 'delete', ids, title }
+}
+function askDeleteOne(id: string, name: string) {
+  askDelete([id], `"${name}" 보드를 삭제할까요?`)
+}
+function askDeleteSelected() {
+  askDelete([...selected.value], `선택한 보드 ${selected.value.size}개를 삭제할까요?`)
+}
+function askDeleteAll() {
+  askDelete(
+    store.boards.map((b) => b.id),
+    `보드 ${store.boards.length}개를 전부 삭제할까요?`,
+  )
+}
+
+async function confirmDialog() {
+  const d = dialog.value
+  dialog.value = null
+  if (!d) return
+  if (d.kind === 'delete') {
+    await store.deleteBoards(d.ids)
+    selected.value = new Set()
+    if (store.boards.length === 0) selecting.value = false
+    say(`보드 ${d.ids.length}개를 삭제했습니다.`)
+  } else if (d.kind === 'template') {
+    await store.saveAsTemplate(d.boardId, d.name)
+    say('템플릿으로 저장했습니다.')
+  } else {
+    const boardId = await store.createBoardFromTemplateId(d.templateId, d.name)
+    if (boardId) navigate({ name: 'edit', boardId })
+  }
+}
+
+// ── 동작 ─────────────────────────────────────────────────
 onMounted(() => {
   store.closeBoard()
   void store.refreshBoards()
   void store.refreshTemplates()
+  document.addEventListener('pointerdown', onDocDown)
 })
+onUnmounted(() => document.removeEventListener('pointerdown', onDocDown))
 
 async function create() {
   const id = await store.createBoard(newName.value || '새 보드')
@@ -20,33 +90,23 @@ async function create() {
   navigate({ name: 'edit', boardId: id })
 }
 
-async function remove(id: string) {
-  confirmId.value = null
-  await store.deleteBoard(id)
-}
-
 async function clone(id: string) {
+  menuId.value = null
   await store.cloneBoard(id)
   say('보드를 복제했습니다. 진행도와 횟수는 0으로 시작합니다.')
 }
 
-async function saveTemplate(id: string, boardName: string) {
-  const name = window.prompt('템플릿 이름', `${boardName} 템플릿`)
-  if (name === null) return
-  await store.saveAsTemplate(id, name)
-  say('템플릿으로 저장했습니다.')
+// 보드 사각형을 누르면 보기 화면으로 이동한다. 선택 모드에서는 체크만 바뀐다.
+function openBoard(id: string) {
+  if (selecting.value) toggleOne(id)
+  else navigate({ name: 'view', boardId: id })
 }
 
-async function fromTemplate(id: string, templateName: string) {
-  const name = window.prompt('새 보드 이름', templateName)
-  if (name === null) return
-  const boardId = await store.createBoardFromTemplateId(id, name)
-  if (boardId) navigate({ name: 'edit', boardId })
-}
-
+let noticeTimer = 0
 function say(msg: string) {
   notice.value = msg
-  setTimeout(() => (notice.value = ''), 3000)
+  clearTimeout(noticeTimer)
+  noticeTimer = window.setTimeout(() => (notice.value = ''), 3000)
 }
 
 function fmt(ms: number) {
@@ -68,22 +128,66 @@ function fmt(ms: number) {
       보드를 만들고 할 일을 슬롯에 배치해 순서대로 처리해 보세요.
     </p>
 
-    <ul class="boards">
-      <li v-for="b in store.boards" :key="b.id">
-        <a class="board" :href="`#/b/${b.id}`">
-          <strong>{{ b.name }}</strong>
-          <span class="muted">{{ b.doneCount }} / {{ b.nodeCount }} 완료 · {{ fmt(b.updatedAt) }}</span>
-          <span class="bar"><span :style="{ width: (b.nodeCount ? (b.doneCount / b.nodeCount) * 100 : 0) + '%' }" /></span>
-        </a>
-        <div class="row-actions">
-          <a class="btn ghost small" :href="`#/b/${b.id}/view`">보기</a>
-          <button class="btn ghost small" title="구조를 유지한 채 진행도 0으로 복제" @click="clone(b.id)">복제</button>
-          <button class="btn ghost small" @click="saveTemplate(b.id, b.name)">템플릿 저장</button>
-          <button v-if="confirmId !== b.id" class="btn ghost small" @click="confirmId = b.id">삭제</button>
-          <button v-else class="btn danger small" @click="remove(b.id)">정말 삭제</button>
-        </div>
-      </li>
-    </ul>
+    <template v-else>
+      <div class="list-bar">
+        <template v-if="selecting">
+          <label class="check-all">
+            <input type="checkbox" :checked="allSelected" @change="toggleAll" /> 전체 선택
+          </label>
+          <span class="muted">{{ selected.size }}개 선택</span>
+          <span class="spacer" />
+          <button class="btn danger small" :disabled="selected.size === 0" @click="askDeleteSelected">선택 삭제</button>
+          <button class="btn danger small" @click="askDeleteAll">전체 삭제</button>
+          <button class="btn small" @click="toggleSelecting">취소</button>
+        </template>
+        <template v-else>
+          <span class="muted">보드 {{ store.boards.length }}개</span>
+          <span class="spacer" />
+          <button class="btn small" @click="toggleSelecting">선택 삭제…</button>
+        </template>
+      </div>
+
+      <ul class="boards">
+        <li v-for="b in store.boards" :key="b.id" :class="{ picked: selected.has(b.id) }">
+          <input
+            v-if="selecting"
+            type="checkbox"
+            class="pick"
+            :checked="selected.has(b.id)"
+            :aria-label="`${b.name} 선택`"
+            @change="toggleOne(b.id)"
+          />
+          <button class="board" type="button" @click="openBoard(b.id)">
+            <strong>{{ b.name }}</strong>
+            <span class="muted">{{ b.doneCount }} / {{ b.nodeCount }} 완료 · {{ fmt(b.updatedAt) }}</span>
+            <span class="bar"><span :style="{ width: (b.nodeCount ? (b.doneCount / b.nodeCount) * 100 : 0) + '%' }" /></span>
+          </button>
+
+          <div v-if="!selecting" class="more-wrap">
+            <button
+              class="more"
+              type="button"
+              aria-label="보드 메뉴"
+              :aria-expanded="menuId === b.id"
+              @click="menuId = menuId === b.id ? null : b.id"
+            >
+              ⋯
+            </button>
+            <div v-if="menuId === b.id" class="pop" role="menu">
+              <button role="menuitem" @click="navigate({ name: 'edit', boardId: b.id })">✏ 수정</button>
+              <button role="menuitem" @click="clone(b.id)">⧉ 복제</button>
+              <button
+                role="menuitem"
+                @click="((menuId = null), (dialog = { kind: 'template', boardId: b.id, name: `${b.name} 템플릿` }))"
+              >
+                📄 템플릿 저장
+              </button>
+              <button role="menuitem" class="danger" @click="askDeleteOne(b.id, b.name)">🗑 삭제</button>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </template>
 
     <section v-if="store.templates.length" class="templates">
       <h2>템플릿</h2>
@@ -96,12 +200,36 @@ function fmt(ms: number) {
             </span>
           </div>
           <div class="row-actions">
-            <button class="btn small" @click="fromTemplate(t.id, t.name)">이 템플릿으로 새 보드</button>
+            <button class="btn small" @click="dialog = { kind: 'fromTemplate', templateId: t.id, name: t.name }">
+              이 템플릿으로 새 보드
+            </button>
             <button class="btn ghost small" @click="store.deleteTemplate(t.id)">삭제</button>
           </div>
         </li>
       </ul>
     </section>
+
+    <div v-if="dialog" class="overlay" @pointerdown.self="dialog = null">
+      <form class="dialog" @submit.prevent="confirmDialog">
+        <template v-if="dialog.kind === 'delete'">
+          <h2>{{ dialog.title }}</h2>
+          <p class="muted">삭제한 보드는 되돌릴 수 없습니다.</p>
+        </template>
+        <template v-else>
+          <h2>{{ dialog.kind === 'template' ? '템플릿으로 저장' : '템플릿으로 새 보드' }}</h2>
+          <div class="field">
+            <label for="d-name">{{ dialog.kind === 'template' ? '템플릿 이름' : '보드 이름' }}</label>
+            <input id="d-name" v-model="dialog.name" class="input" maxlength="60" autofocus />
+          </div>
+        </template>
+        <div class="actions">
+          <button type="button" class="btn" @click="dialog = null">취소</button>
+          <button type="submit" class="btn" :class="dialog.kind === 'delete' ? 'danger' : 'primary'">
+            {{ dialog.kind === 'delete' ? '삭제' : '확인' }}
+          </button>
+        </div>
+      </form>
+    </div>
   </main>
 </template>
 
@@ -127,6 +255,23 @@ function fmt(ms: number) {
   text-align: center;
   line-height: 1.8;
 }
+.list-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  margin-bottom: 10px;
+}
+.spacer {
+  flex: 1;
+}
+.check-all {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
 .boards {
   display: grid;
   gap: 10px;
@@ -136,23 +281,93 @@ function fmt(ms: number) {
 }
 .boards li {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
+}
+.pick {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 .board {
   display: grid;
-  flex: 1 1 280px;
+  flex: 1;
+  min-width: 0;
   gap: 4px;
   padding: 12px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  color: inherit;
-  text-decoration: none;
+  text-align: left;
 }
-a.board:hover {
+button.board {
+  cursor: pointer;
+}
+button.board:hover,
+.picked .board {
   border-color: var(--accent);
+}
+.picked .board {
+  background: var(--accent-soft);
+}
+.more-wrap {
+  position: relative;
+  flex: none;
+}
+.more {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+.more:hover,
+.more[aria-expanded='true'] {
+  background: var(--surface-2);
+}
+/* 말풍선처럼 ⋯ 버튼 아래에 뜨는 메뉴 */
+.pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.pop::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+.pop button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.pop button:hover {
+  background: var(--surface-2);
+}
+.danger {
+  color: var(--danger);
 }
 .row-actions {
   display: flex;

@@ -1,8 +1,8 @@
 export * from './types'
 export { DomainError, sortedLanes, slotIndex, cellNode } from './core'
 export type { DomainErrorCode } from './core'
-export { createBoardData, renameBoard, setShowSlotNumbers } from './board'
-export { addLane, renameLane, toggleLaneActive, reorderLane, deleteLane } from './lanes'
+export { createBoardData, renameBoard, setShowSlotNumbers, setGraphStyle } from './board'
+export { addLane, renameLane, setLaneColor, toggleLaneActive, reorderLane, deleteLane } from './lanes'
 export type { DeleteLaneMode } from './lanes'
 export {
   createNode,

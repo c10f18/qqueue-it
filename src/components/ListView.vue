@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { isCompleted, sortedLanes, type BoardData, type TaskNode } from '../domain'
 import { ATTR_LABELS, DEFAULT_ATTRS, type AttrKey } from '../composables/useNodeDisplay'
-import { laneColor } from '../composables/laneColor'
+import { laneColorOf } from '../composables/laneColor'
 import { SKIN_MODULES, type SkinId } from './skins'
 
 const props = defineProps<{ data: BoardData }>()
@@ -20,7 +20,8 @@ const allLanes = computed(() => sortedLanes(props.data))
 const lanes = computed(() => allLanes.value.filter((l) => l.active))
 const laneIds = computed(() => new Set(lanes.value.map((l) => l.id)))
 function laneStyle(laneId: string) {
-  return { '--lane': laneColor(allLanes.value.findIndex((l) => l.id === laneId)) }
+  const idx = allLanes.value.findIndex((l) => l.id === laneId)
+  return { '--lane': laneColorOf(allLanes.value[idx], idx) }
 }
 
 type Row =

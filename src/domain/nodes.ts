@@ -7,6 +7,7 @@ import {
   draft,
   findNode,
   insertSlotAfter,
+  normalizeColor,
   requireLane,
   requireSlot,
   uid,
@@ -18,6 +19,8 @@ export interface NodeFields {
   name?: string
   description?: string
   icon?: string
+  color?: string
+  image?: string
   tags?: string[]
   deadline?: number
 }
@@ -53,6 +56,8 @@ function buildNode(d: BoardData, slotId: string, laneId: string, fields: NodeFie
     name,
     description: fields.description,
     icon: fields.icon,
+    color: normalizeColor(fields.color),
+    image: fields.image,
     tags: normalizeTags(fields.tags ?? []),
     progress: 0,
     count: 0,
@@ -109,6 +114,8 @@ export function updateNode(data: BoardData, nodeId: string, patch: NodePatch): O
   }
   if ('description' in patch) node.description = patch.description || undefined
   if ('icon' in patch) node.icon = patch.icon || undefined
+  if ('color' in patch) node.color = normalizeColor(patch.color)
+  if ('image' in patch) node.image = patch.image || undefined
   if ('deadline' in patch) node.deadline = patch.deadline
   if (patch.tags !== undefined) node.tags = normalizeTags(patch.tags)
   if (patch.progress !== undefined) node.progress = clampProgress(patch.progress)
