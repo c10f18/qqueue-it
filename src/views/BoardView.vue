@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AlignDialog from '../components/AlignDialog.vue'
 import BulkProgressDialog from '../components/BulkProgressDialog.vue'
 import GraphSettingsDialog from '../components/GraphSettingsDialog.vue'
@@ -7,7 +7,19 @@ import ListView from '../components/ListView.vue'
 import QueueGraph from '../components/QueueGraph.vue'
 import Timetable from '../components/Timetable.vue'
 import { navigate } from '../composables/useRoute'
-import { bulkProgress, renameBoard, resetAllProgress, sortedLanes, toggleLaneActive } from '../domain'
+import {
+  DomainError,
+  bulkProgress,
+  exportBoard,
+  importBoardData,
+  renameBoard,
+  resetAllProgress,
+  sortedLanes,
+  toggleLaneActive,
+} from '../domain'
+import { safeFileName, saveBlob } from '../export/download'
+import { jpegToPdf } from '../export/pdf'
+import { boardToXlsx } from '../export/xlsx'
 import { useBoardStore } from '../stores/board'
 
 const props = defineProps<{ boardId: string; mode: 'edit' | 'view' }>()
@@ -45,6 +57,75 @@ function resetAll() {
   store.apply((d) => resetAllProgress(d))
 }
 
+// ── 보기 모드의 ☰ 메뉴: 일괄 진행, 내보내기, 가져오기 ─────────
+const menuOpen = ref(false)
+const viewGraph = ref<InstanceType<typeof QueueGraph> | null>(null)
+const importInput = ref<HTMLInputElement | null>(null)
+type ExportKind = 'json' | 'xlsx' | 'pdf' | 'png' | 'svg'
+const EXPORTS: { kind: ExportKind; label: string; hint: string }[] = [
+  { kind: 'json', label: 'JSON', hint: '보드 전체 (다시 가져올 수 있음)' },
+  { kind: 'xlsx', label: 'Excel (.xlsx)', hint: '작업 목록 표' },
+  { kind: 'pdf', label: 'PDF', hint: '큐 그래프 그림' },
+  { kind: 'png', label: 'PNG', hint: '큐 그래프 그림' },
+  { kind: 'svg', label: 'SVG', hint: '큐 그래프 벡터' },
+]
+
+/** 그래프를 그림으로 내보내려면 그래프 탭이 떠 있어야 한다. */
+async function graphForExport() {
+  if (viewTab.value !== 'graph') {
+    viewTab.value = 'graph'
+    await nextTick()
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+  if (!viewGraph.value) throw new Error('그래프를 준비하지 못했습니다.')
+  return viewGraph.value
+}
+
+async function doExport(kind: ExportKind) {
+  menuOpen.value = false
+  const board = store.exportData()
+  if (!board) return
+  const name = safeFileName(board.board.name)
+  try {
+    if (kind === 'json') {
+      const text = JSON.stringify(exportBoard(board), null, 2)
+      saveBlob(new Blob([text], { type: 'application/json' }), `${name}.json`)
+    } else if (kind === 'xlsx') {
+      saveBlob(boardToXlsx(board), `${name}.xlsx`)
+    } else if (kind === 'svg') {
+      const svg = (await graphForExport()).toSvg()
+      saveBlob(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`)
+    } else if (kind === 'png') {
+      saveBlob((await (await graphForExport()).toBlob('image/png')).blob, `${name}.png`)
+    } else {
+      const { blob, width, height } = await (await graphForExport()).toBlob('image/jpeg')
+      const pageW = Math.round(width / (window.devicePixelRatio || 1)) * 0.75 // CSS px → pt
+      saveBlob(jpegToPdf(new Uint8Array(await blob.arrayBuffer()), width, height, pageW), `${name}.pdf`)
+    }
+  } catch (e) {
+    store.error = e instanceof Error ? e.message : '내보내지 못했습니다.'
+  }
+}
+
+async function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    let raw: unknown
+    try {
+      raw = JSON.parse(await file.text())
+    } catch {
+      throw new DomainError('invalid-argument', '가져올 수 없는 파일입니다: JSON 형식이 아닙니다.')
+    }
+    const id = await store.importBoard(importBoardData(raw))
+    navigate({ name: 'view', boardId: id })
+  } catch (err) {
+    store.error = err instanceof Error ? err.message : '가져오지 못했습니다.'
+  }
+}
+
 function startRename() {
   if (!data.value || props.mode !== 'edit') return
   nameDraft.value = data.value.board.name
@@ -64,6 +145,7 @@ watch(
     renaming.value = false
     panel.value = null
     bulkOpen.value = false
+    menuOpen.value = false
   },
   { immediate: true },
 )
@@ -91,6 +173,7 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 function onDocDown(e: PointerEvent) {
   const target = e.target as HTMLElement
   if (layoutOpen.value && !target.closest('.layout-wrap')) layoutOpen.value = false
+  if (menuOpen.value && !target.closest('.menu-wrap')) menuOpen.value = false
   if (!panel.value) return
   if (target.closest('.side-panel .dialog, [data-panel-toggle]')) return
   panel.value = null
@@ -229,8 +312,14 @@ onUnmounted(() => {
         {{ data.board.name }}
       </h1>
 
-      <button v-if="mode === 'view'" class="btn edit-btn" title="수정 모드로 들어가기" @click="navigate({ name: 'edit', boardId })">
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <button
+        v-if="mode === 'view'"
+        class="edit-btn"
+        title="수정 모드로 들어가기"
+        aria-label="수정"
+        @click="navigate({ name: 'edit', boardId })"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
           <path
             d="M11.3 1.7a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L5.6 13.4l-3.7.8.8-3.7z"
             fill="none"
@@ -240,11 +329,31 @@ onUnmounted(() => {
           />
           <path d="M9.8 3.2l3 3" stroke="currentColor" stroke-width="1.4" />
         </svg>
-        수정
       </button>
       <span v-else class="chip mode-chip">수정 중</span>
 
-      <button v-if="mode === 'view'" class="btn" title="지정한 슬롯까지 한 번에 완료 처리" @click="bulkOpen = true">일괄 진행</button>
+      <template v-if="mode === 'view'">
+        <span class="spacer" />
+        <div class="menu-wrap">
+          <button class="menu-btn" title="메뉴" aria-label="메뉴" aria-haspopup="true" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">
+            <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+              <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+          </button>
+          <div v-if="menuOpen" class="menu-pop" role="menu">
+            <button role="menuitem" title="지정한 슬롯까지 한 번에 완료 처리" @click="((menuOpen = false), (bulkOpen = true))">일괄 진행…</button>
+            <span class="menu-title">내보내기</span>
+            <button v-for="x in EXPORTS" :key="x.kind" role="menuitem" @click="doExport(x.kind)">
+              {{ x.label }} <span class="muted">{{ x.hint }}</span>
+            </button>
+            <span class="menu-title">가져오기</span>
+            <button role="menuitem" @click="((menuOpen = false), importInput?.click())">
+              JSON 파일… <span class="muted">새 보드로 추가</span>
+            </button>
+          </div>
+          <input ref="importInput" type="file" accept=".json,application/json" hidden @change="onImportFile" />
+        </div>
+      </template>
 
       <template v-if="mode === 'edit'">
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
@@ -354,7 +463,7 @@ onUnmounted(() => {
       </div>
       <div class="view-body">
         <ListView v-if="viewTab === 'list'" :data="data" />
-        <QueueGraph v-else :data="data" :camera="store.camera" />
+        <QueueGraph v-else ref="viewGraph" :data="data" :camera="store.camera" />
       </div>
     </div>
 
@@ -405,10 +514,69 @@ onUnmounted(() => {
 .title-input {
   width: 220px;
 }
-.edit-btn {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
+/* 펜 아이콘만 있는 테두리 없는 버튼 */
+.edit-btn,
+.menu-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.edit-btn:hover,
+.menu-btn:hover,
+.menu-btn[aria-expanded='true'] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.menu-btn {
+  color: var(--text);
+}
+.menu-wrap {
+  position: relative;
+}
+.menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 250px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.menu-pop button {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-pop button:hover {
+  background: var(--surface-2);
+}
+.menu-pop button .muted {
+  font-size: 12px;
+}
+.menu-title {
+  margin-top: 4px;
+  padding: 8px 10px 2px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
 }
 .edit-btn,
 .mode-chip {

@@ -16,6 +16,8 @@ export {
 export type { NodeFields, NodePatch } from './nodes'
 export { NAME_LABEL_GROUP_NAME, labelGroupsOf, addLabelGroup, updateLabelGroup, removeLabelGroup, setNodeLabel } from './labels'
 export type { LabelGroupPatch } from './labels'
+export { exportBoard, importBoardData, EXPORT_FORMAT } from './transfer'
+export type { BoardExport } from './transfer'
 export { dropOnCell, dropOnBoundary, moveSlot } from './move'
 export { bulkProgress, resetLaneProgress, resetAllProgress } from './progress'
 export { computeDerivedEdges, shownNodes } from './edges'

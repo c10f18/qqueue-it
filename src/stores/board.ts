@@ -90,6 +90,17 @@ export const useBoardStore = defineStore('board', () => {
     commit(current.value)
   }
 
+  /** 지금 보드의 내보내기용 사본 (그래프 시점 포함) */
+  function exportData(): BoardData | null {
+    return current.value ? withCamera(current.value) : null
+  }
+  /** 가져온 보드를 새 보드로 저장하고 id를 돌려준다. */
+  async function importBoard(data: BoardData): Promise<string> {
+    await persist(data)
+    await refreshBoards()
+    return data.board.id
+  }
+
   /** 저장하지 않은 변경을 버리고 마지막으로 저장한 상태로 되돌린다. 되돌리기 기록도 비운다. */
   async function discard() {
     const id = current.value?.board.id
@@ -309,6 +320,8 @@ export const useBoardStore = defineStore('board', () => {
     openBoard,
     closeBoard,
     dirty,
+    exportData,
+    importBoard,
     camera,
     setCamera,
     save,

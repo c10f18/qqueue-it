@@ -17,7 +17,7 @@ import {
   NAME_LABEL_GROUP_ID,
 } from '../domain'
 import { laneColorOf } from '../composables/laneColor'
-import { labelFontCss } from '../graph/labelFont'
+import { LABEL_FONTS, labelFontCss } from '../graph/labelFont'
 import { place } from '../graph/layout'
 import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type View } from '../graph/projection'
 
@@ -361,6 +361,208 @@ function draw() {
     }
   }
 }
+
+// ── 내보내기: 지금 보이는 그래프를 그림(PNG/JPEG)이나 벡터(SVG)로 만든다 ──
+const TITLE_BAND = 44
+
+/** 배경과 보드 이름까지 합친 그림. 화면 캔버스는 배경이 투명이라 따로 깔아 준다. */
+function snapshotCanvas(): HTMLCanvasElement {
+  draw()
+  const cv = canvas.value!
+  const dpr = window.devicePixelRatio || 1
+  const titleH = style.value.showBoardName ? Math.round(TITLE_BAND * dpr) : 0
+  const out = document.createElement('canvas')
+  out.width = cv.width
+  out.height = cv.height + titleH
+  const ctx = out.getContext('2d')!
+  ctx.fillStyle = cssVar(cv, '--surface-2', '#f1f1ee')
+  ctx.fillRect(0, 0, out.width, out.height)
+  if (style.value.background && style.value.background !== 'transparent') {
+    ctx.fillStyle = style.value.background
+    ctx.fillRect(0, 0, out.width, out.height)
+  }
+  if (titleH) {
+    ctx.font = `700 ${Math.round(20 * dpr)}px system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = cssVar(cv, '--text', '#222')
+    ctx.fillText(props.data.board.name, out.width / 2, titleH / 2, out.width - 24 * dpr)
+  }
+  ctx.drawImage(cv, 0, titleH)
+  return out
+}
+function toBlob(type: 'image/png' | 'image/jpeg'): Promise<{ blob: Blob; width: number; height: number }> {
+  const cv = snapshotCanvas()
+  return new Promise((resolve, reject) =>
+    cv.toBlob(
+      (blob) => (blob ? resolve({ blob, width: cv.width, height: cv.height }) : reject(new Error('그림을 만들지 못했습니다.'))),
+      type,
+      0.92,
+    ),
+  )
+}
+
+function xml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+/** 색 → SVG 속성. '#rrggbbaa'는 불투명도 속성으로 나눠 쓴다. */
+function paint(attr: 'fill' | 'stroke', color: string): string {
+  if (color === 'transparent') return `${attr}="none"`
+  if (/^#[0-9a-f]{8}$/i.test(color)) {
+    return `${attr}="${color.slice(0, 7)}" ${attr}-opacity="${(parseInt(color.slice(7), 16) / 255).toFixed(3)}"`
+  }
+  return `${attr}="${color}"`
+}
+const f1 = (n: number) => n.toFixed(1)
+
+/** 지금 시점 그대로의 그래프를 SVG 문서로 만든다. 그리는 순서와 모양은 draw()와 같다. */
+function toSvg(): string {
+  const cv = canvas.value!
+  const { w, h } = size.value
+  const st = style.value
+  const titleH = st.showBoardName ? TITLE_BAND : 0
+  const textColor = cssVar(cv, '--text', '#222')
+  const dimColor = cssVar(cv, '--text-dim', '#777')
+  const surface = cssVar(cv, '--surface', '#fff')
+  const accent = cssVar(cv, '--accent', '#4b6bfb')
+  const doneColor = st.doneColor ?? cssVar(cv, '--ok', '#2f9e6b')
+  const doneMark = DONE_MARKS[st.doneMark ?? 'check']
+  const edgeColor = st.edgeColor ?? cssVar(cv, '--border', '#ccc')
+  const edgeWidth = st.edgeWidth ?? 1.5
+  const edgeHead = st.edgeHead ?? 'arrow'
+  const headSize = st.edgeHeadSize ?? GRAPH_RANGES.edgeHeadSize.default
+  const showProgress = st.showProgress ?? true
+  const R = nodeR.value
+
+  const project = makeProjector(view.value, w, h)
+  const { nodes, pos, heads, colorOf, edges } = layout.value
+  const proj = new Map(nodes.map((n) => [n.id, project(pos.get(n.id)!)]))
+  const out: string[] = []
+  out.push(
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h + titleH}" viewBox="0 0 ${w} ${h + titleH}" font-family="system-ui, sans-serif">`,
+    `<rect width="100%" height="100%" fill="${cssVar(cv, '--surface-2', '#f1f1ee')}"/>`,
+  )
+  if (st.background) out.push(`<rect width="100%" height="100%" ${paint('fill', st.background)}/>`)
+  if (titleH) {
+    out.push(
+      `<text x="${w / 2}" y="${titleH / 2 + 7}" text-anchor="middle" font-size="20" font-weight="700" fill="${textColor}">${xml(props.data.board.name)}</text>`,
+    )
+  }
+  out.push(`<defs><clipPath id="stage"><rect width="${w}" height="${h}"/></clipPath></defs>`)
+  out.push(`<g transform="translate(0 ${titleH})" clip-path="url(#stage)">`)
+
+  for (const hd of heads) {
+    const p = project(hd.pos)
+    out.push(
+      `<text x="${f1(p.x)}" y="${f1(p.y + 4.5)}" text-anchor="middle" font-size="13" font-weight="700" ${paint('fill', hd.color === 'transparent' ? dimColor : hd.color)}>${xml(hd.name)}</text>`,
+    )
+  }
+
+  for (const e of edges) {
+    const a = proj.get(e.from)
+    const b = proj.get(e.to)
+    if (!a || !b) continue
+    const ra = R * a.scale
+    const rb = R * b.scale
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy)
+    if (len < ra + rb + 2) continue
+    const ux = dx / len
+    const uy = dy / len
+    const sx = a.x + ux * ra
+    const sy = a.y + uy * ra
+    const ex = b.x - ux * (rb + 2)
+    const ey = b.y - uy * (rb + 2)
+    const head = Math.max(6, 5 + edgeWidth * 2.2) * headSize
+    const lineEnd = edgeHead === 'arrow' ? head * 0.8 : 0
+    const stroke = `${paint('stroke', edgeColor)} stroke-width="${edgeWidth}" stroke-linecap="round" stroke-linejoin="round"`
+    out.push(`<line x1="${f1(sx)}" y1="${f1(sy)}" x2="${f1(ex - ux * lineEnd)}" y2="${f1(ey - uy * lineEnd)}" ${stroke}/>`)
+    const lx = ex - ux * head - uy * head * 0.55
+    const ly = ey - uy * head + ux * head * 0.55
+    const rx = ex - ux * head + uy * head * 0.55
+    const ry = ey - uy * head - ux * head * 0.55
+    if (edgeHead === 'arrow') {
+      out.push(`<path d="M${f1(ex)} ${f1(ey)}L${f1(lx)} ${f1(ly)}L${f1(rx)} ${f1(ry)}Z" ${paint('fill', edgeColor)}/>`)
+    } else if (edgeHead === 'open') {
+      out.push(`<path d="M${f1(lx)} ${f1(ly)}L${f1(ex)} ${f1(ey)}L${f1(rx)} ${f1(ry)}" fill="none" ${stroke}/>`)
+    } else if (edgeHead === 'dot') {
+      out.push(`<circle cx="${f1(ex)}" cy="${f1(ey)}" r="${f1(Math.max(2.5, edgeWidth * 1.6) * headSize)}" ${paint('fill', edgeColor)}/>`)
+    }
+  }
+
+  const order = [...nodes].sort((x, y) => proj.get(y.id)!.depth - proj.get(x.id)!.depth)
+  const labelOk = showLabels.value && nodes.length <= 400
+  const groups = labelGroupsOf(props.data)
+  order.forEach((n, i) => {
+    const p = proj.get(n.id)!
+    const r = R * p.scale
+    const laneCol = colorOf(n.laneId)
+    const done = isCompleted(n)
+    const circle = `cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(r)}"`
+    out.push(`<circle ${circle} ${paint('fill', n.color ?? surface)}/>`)
+    if (n.image) {
+      out.push(
+        `<clipPath id="n${i}"><circle ${circle}/></clipPath>`,
+        `<image href="${n.image}" xlink:href="${n.image}" x="${f1(p.x - r)}" y="${f1(p.y - r)}" width="${f1(r * 2)}" height="${f1(r * 2)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#n${i})"/>`,
+      )
+    }
+    if (done) out.push(`<circle ${circle} ${paint('fill', doneColor)}${n.image ? ' opacity="0.65"' : ''}/>`)
+    out.push(`<circle ${circle} fill="none" ${paint('stroke', laneCol)} stroke-width="${f1(Math.max(1, 2.5 * p.scale))}"/>`)
+
+    if (showProgress && !done && n.progress > 0) {
+      const rr = r + 3 * p.scale
+      const end = -Math.PI / 2 + (Math.PI * 2 * n.progress) / 100
+      out.push(
+        `<path d="M${f1(p.x)} ${f1(p.y - rr)}A${f1(rr)} ${f1(rr)} 0 ${n.progress > 50 ? 1 : 0} 1 ${f1(p.x + Math.cos(end) * rr)} ${f1(p.y + Math.sin(end) * rr)}" fill="none" ${paint('stroke', laneCol === 'transparent' ? accent : laneCol)} stroke-width="${f1(Math.max(2, 3.5 * p.scale))}"/>`,
+      )
+    }
+    if (r > 7) {
+      const glyph = done ? doneMark : n.image ? '' : (n.icon ?? '')
+      if (glyph) {
+        const px = Math.round(r * 0.95)
+        const fill = done ? (isSeeThrough(doneColor) && !n.image ? textColor : '#fff') : textColor
+        out.push(`<text x="${f1(p.x)}" y="${f1(p.y + px * 0.36)}" text-anchor="middle" font-size="${px}" fill="${fill}">${xml(glyph)}</text>`)
+      }
+    }
+    if (labelOk && r > 8) {
+      const textScale = Math.max(0.8, Math.min(1.2, p.scale))
+      for (const g of groups) {
+        if (g.visible === false) continue
+        let text: string
+        if (g.id === NAME_LABEL_GROUP_ID) {
+          const label = n.name.length > 14 ? n.name.slice(0, 13) + '…' : n.name
+          text = showProgress && !done && n.progress > 0 ? `${label} ${n.progress}%` : label
+        } else {
+          text = n.labels?.[g.id] ?? ''
+        }
+        if (!text) continue
+        const rad = (labelAngle(g) * Math.PI) / 180
+        const dir = { x: Math.sin(rad), y: -Math.cos(rad) }
+        const reach = r + 6 * textScale
+        const SIDE = 0.38
+        const px = Math.round((g.size ?? LABEL_SIZE.default) * textScale)
+        const anchor = dir.x > SIDE ? 'start' : dir.x < -SIDE ? 'end' : 'middle'
+        // 글자 기준선: 아래쪽 라벨은 위를, 위쪽 라벨은 아래를 노드에 붙인다.
+        const dyBase = dir.y > SIDE ? px * 0.85 : dir.y < -SIDE ? -px * 0.2 : px * 0.35
+        const styleAttrs = [
+          `font-family="${xml(LABEL_FONTS[g.font ?? 'sans'].family)}"`,
+          `font-size="${px}"`,
+          g.bold ? 'font-weight="700"' : '',
+          g.italic ? 'font-style="italic"' : '',
+          g.underline ? 'text-decoration="underline"' : '',
+        ].join(' ')
+        out.push(
+          `<text x="${f1(p.x + dir.x * reach)}" y="${f1(p.y + dir.y * reach + dyBase)}" text-anchor="${anchor}" ${styleAttrs} ${paint('fill', g.color ?? dimColor)}>${xml(text)}</text>`,
+        )
+      }
+    }
+  })
+  out.push('</g></svg>')
+  return out.join('\n')
+}
+
+defineExpose({ toBlob, toSvg })
 
 // ── 크기 / 반응형: window가 아니라 이 패널 자체를 관찰한다 (명세 23.2) ──
 let ro: ResizeObserver | null = null
