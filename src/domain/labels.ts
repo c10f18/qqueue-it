@@ -8,7 +8,10 @@ import type { BoardData, GraphDirection, LabelGroup, OpResult } from './types'
 /** 새 그룹을 놓을 방향을 고르는 순서 */
 const POSITION_ORDER: GraphDirection[] = ['down', 'up', 'right', 'left', 'down-right', 'down-left', 'up-right', 'up-left']
 
-const DEFAULT_GROUPS: LabelGroup[] = [{ id: NAME_LABEL_GROUP_ID, name: '이름', position: 'down' }]
+/** 첫 그룹(작업 이름)의 이름은 고정이다. */
+export const NAME_LABEL_GROUP_NAME = '이름'
+
+const DEFAULT_GROUPS: LabelGroup[] = [{ id: NAME_LABEL_GROUP_ID, name: NAME_LABEL_GROUP_NAME, position: 'down' }]
 
 /** 보드의 라벨 그룹 목록. 설정한 적이 없으면 기본 그룹(이름) 1개 */
 export function labelGroupsOf(data: BoardData): LabelGroup[] {
@@ -54,6 +57,10 @@ export function updateLabelGroup(data: BoardData, groupId: string, patch: LabelG
   const d = draft(data)
   const group = editableGroups(d).find((g) => g.id === groupId)
   if (!group) throw new DomainError('invalid-argument', '라벨 그룹을 찾을 수 없습니다.')
+  if (group.id === NAME_LABEL_GROUP_ID) {
+    if (patch.name !== undefined) throw new DomainError('invalid-argument', '이름 라벨의 그룹 이름은 바꿀 수 없습니다.')
+    group.name = NAME_LABEL_GROUP_NAME
+  }
   if (patch.name !== undefined) {
     const name = patch.name.trim()
     if (!name) throw new DomainError('invalid-argument', '라벨 그룹 이름을 입력해 주세요.')
@@ -103,7 +110,7 @@ export function removeLabelGroup(data: BoardData, groupId: string): OpResult {
   return { data: d }
 }
 
-/** 노드의 라벨 글자 입력. 빈 글자는 지운 것으로 본다. */
+/** 노드의 라벨 글자 입력. 앞뒤 공백은 떼고, 빈 글자는 지운 것으로 본다. */
 export function setNodeLabel(data: BoardData, nodeId: string, groupId: string, text: string): OpResult {
   const d = draft(data)
   const node = findNode(d, nodeId)

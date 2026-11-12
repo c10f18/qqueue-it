@@ -15,7 +15,10 @@ const emit = defineEmits<{
   menu: [e: MouseEvent]
   addBelow: []
   rename: [name: string]
+  /** 라벨 입력 중: 글자를 칠 때마다 보낸다 (그래프에 바로 반영) */
   label: [groupId: string, text: string]
+  /** 라벨 입력을 마침 (포커스가 빠짐) */
+  labelEnd: []
   stopEdit: []
   toggleDone: []
   count: [delta: number]
@@ -36,6 +39,25 @@ watch(
   },
   { immediate: true },
 )
+
+// 입력 중인 라벨 줄은 저장된 값(앞뒤 공백을 뗀 값)으로 덮어쓰지 않도록 따로 들고 있는다.
+const labelFocus = ref<string | null>(null)
+const labelDraft = ref('')
+function labelValue(groupId: string): string {
+  return labelFocus.value === groupId ? labelDraft.value : (props.node.labels?.[groupId] ?? '')
+}
+function onLabelFocus(groupId: string) {
+  labelDraft.value = props.node.labels?.[groupId] ?? ''
+  labelFocus.value = groupId
+}
+function onLabelInput(groupId: string, e: Event) {
+  labelDraft.value = (e.target as HTMLInputElement).value
+  emit('label', groupId, labelDraft.value)
+}
+function onLabelBlur() {
+  labelFocus.value = null
+  emit('labelEnd')
+}
 
 function commit() {
   if (!props.editing) return
@@ -97,12 +119,14 @@ function onPointerDown(e: PointerEvent) {
       :key="g.id"
       class="label-input"
       maxlength="40"
-      :value="node.labels?.[g.id] ?? ''"
+      :value="labelValue(g.id)"
       :placeholder="g.name"
       :title="`${g.name} (그래프에서 노드 옆에 표시)`"
       :aria-label="g.name"
       @click.stop
-      @change="emit('label', g.id, ($event.target as HTMLInputElement).value)"
+      @focus="onLabelFocus(g.id)"
+      @input="onLabelInput(g.id, $event)"
+      @blur="onLabelBlur"
       @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
     />
 

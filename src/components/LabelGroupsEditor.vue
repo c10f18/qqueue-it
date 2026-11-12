@@ -9,6 +9,7 @@ import {
   LABEL_SIZE,
   MAX_LABEL_GROUPS,
   NAME_LABEL_GROUP_ID,
+  NAME_LABEL_GROUP_NAME,
   type BoardData,
   type GraphDirection,
   type LabelGroupPatch,
@@ -96,7 +97,11 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   <div class="groups">
     <div v-for="g in groups" :key="g.id" class="group">
       <div class="row">
+        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="fixed-name" title="첫 그룹은 작업 이름을 표시하며 이름을 바꿀 수 없습니다">
+          {{ NAME_LABEL_GROUP_NAME }}
+        </span>
         <input
+          v-else
           class="input name"
           :value="g.name"
           maxlength="20"
@@ -104,7 +109,7 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
           @change="rename(g.id, $event)"
           @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
         />
-        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="muted hint">작업 이름</span>
+        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="muted hint">작업 이름 · 고정</span>
         <button
           v-else
           type="button"
@@ -230,6 +235,12 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 .name {
   flex: 1;
   min-width: 0;
+}
+.fixed-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  font-weight: 700;
 }
 .hint {
   flex: none;

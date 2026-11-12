@@ -49,6 +49,9 @@ describe('노드 라벨 그룹', () => {
     expect(labelGroupsOf(d)[1]).not.toHaveProperty('color')
     expect(labelGroupsOf(d)[1]).not.toHaveProperty('size')
     expect(() => updateLabelGroup(d, gid, { name: '  ' })).toThrow(/이름/)
+    // 첫 그룹의 이름은 '이름'으로 고정
+    expect(() => updateLabelGroup(d, NAME_LABEL_GROUP_ID, { name: '제목' })).toThrow(/바꿀 수 없/)
+    expect(labelGroupsOf(d)[0].name).toBe('이름')
     expect(() => updateLabelGroup(d, id, { name: 'x' })).toThrow(/찾을 수/)
   })
 

@@ -139,6 +139,10 @@ function addBeside(nodeId: string, position: 'above' | 'below') {
   if (id) editingNodeId.value = id
 }
 const extraLabelGroups = computed(() => labelGroupsOf(props.data).filter((g) => g.id !== NAME_LABEL_GROUP_ID))
+// 라벨은 치는 즉시 그래프에 반영한다. 한 번의 입력은 되돌리기 한 칸으로 묶는다.
+function typeLabel(nodeId: string, groupId: string, text: string) {
+  store.apply((d) => setNodeLabel(d, nodeId, groupId, text), `node-label:${nodeId}:${groupId}`)
+}
 function patchNode(nodeId: string, patch: NodePatch) {
   store.apply((d) => updateNode(d, nodeId, patch))
 }
@@ -276,7 +280,8 @@ function resetAll() {
               @menu="(e) => openMenu(nodeAt(slotId, lane.id)!.id, e)"
               @add-below="addBeside(nodeAt(slotId, lane.id)!.id, 'below')"
               @rename="(name) => patchNode(nodeAt(slotId, lane.id)!.id, { name })"
-              @label="(gid, text) => store.apply((d) => setNodeLabel(d, nodeAt(slotId, lane.id)!.id, gid, text))"
+              @label="(gid, text) => typeLabel(nodeAt(slotId, lane.id)!.id, gid, text)"
+              @label-end="store.endGesture()"
               @stop-edit="editingNodeId = null"
               @toggle-done="patchNode(nodeAt(slotId, lane.id)!.id, { progress: nodeAt(slotId, lane.id)!.progress === 100 ? 0 : 100 })"
               @count="(delta) => patchNode(nodeAt(slotId, lane.id)!.id, { count: nodeAt(slotId, lane.id)!.count + delta })"
