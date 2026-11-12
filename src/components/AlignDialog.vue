@@ -41,7 +41,7 @@ function resetGaps() {
 </script>
 
 <template>
-  <div class="overlay" @pointerdown.self="emit('close')">
+  <div class="overlay side-panel">
     <div class="dialog" role="dialog" aria-label="정렬">
       <h2>정렬</h2>
 

@@ -36,6 +36,8 @@ export interface GraphStyle {
   /** 화살표 끝 크기 배율 (1 = 기본) */
   edgeHeadSize?: number
   background?: string
+  /** 그래프 바탕에 보드 이름을 표시할지 (기본: 표시 안 함) */
+  showBoardName?: boolean
   /** 노드 반지름(px) */
   nodeSize?: number
   /** 슬롯(노드) 간 간격 */

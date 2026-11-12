@@ -198,6 +198,17 @@ function draw() {
   const NODE_R = nodeR.value
   const showProgress = st.showProgress ?? true
 
+  // 보드 이름: 화면 위쪽 가운데에 고정해서 바탕 글자로 깐다 (이동·회전·확대와 무관).
+  if (st.showBoardName) {
+    ctx.font = '700 22px system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    ctx.fillStyle = dimColor
+    ctx.globalAlpha = 0.6
+    ctx.fillText(props.data.board.name, w / 2, 46, Math.max(40, w - 24))
+    ctx.globalAlpha = 1
+  }
+
   const project = makeProjector(view.value, w, h)
   const { nodes, pos, heads, colorOf, edges } = layout.value
   const proj = new Map<string, ReturnType<typeof project>>()
@@ -407,7 +418,7 @@ onUnmounted(() => {
   cancelAnimationFrame(raf)
 })
 
-watch([view, layout, selectedId, showLabels, style], schedule)
+watch([view, layout, selectedId, showLabels, style, () => props.data.board.name], schedule)
 // 선택한 노드가 삭제·숨김 처리되면 선택을 푼다.
 watch(layout, (l) => {
   if (selectedId.value && !l.pos.has(selectedId.value)) selectedId.value = null

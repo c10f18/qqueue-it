@@ -36,6 +36,7 @@ export const useBoardStore = defineStore('board', () => {
   const histories = new Map<string, History>()
   const historyState = shallowRef({ cursor: 0, length: 0 })
 
+  let gesture: string | null = null
   let saveQueue: Promise<void> = Promise.resolve()
   function persist(data: BoardData) {
     saveQueue = saveQueue
@@ -47,6 +48,42 @@ export const useBoardStore = defineStore('board', () => {
     return saveQueue
   }
 
+  // 수정 모드에서는 자동 저장을 끄고, 사용자가 "저장"을 눌러야 저장한다.
+  // 그 밖의 화면(보기 모드 등)에서는 바꾸는 즉시 저장한다.
+  const autosave = ref(true)
+  /** 아직 저장하지 않은 변경이 있는지 */
+  const dirty = ref(false)
+
+  function commit(data: BoardData) {
+    if (autosave.value) void persist(data)
+    else dirty.value = true
+  }
+  /** 저장하지 않은 변경을 저장한다. */
+  function save(): Promise<void> {
+    if (!dirty.value || !current.value) return saveQueue
+    dirty.value = false
+    return persist(current.value)
+  }
+  /** 자동 저장을 켜고 끈다. 켤 때 밀린 변경이 있으면 저장한다. */
+  function setAutosave(on: boolean) {
+    autosave.value = on
+    if (on) void save()
+  }
+  /** 저장하지 않은 변경을 버리고 마지막으로 저장한 상태로 되돌린다. 되돌리기 기록도 비운다. */
+  async function discard() {
+    const id = current.value?.board.id
+    if (!id) return
+    dirty.value = false
+    gesture = null
+    await saveQueue
+    const data = await repo.loadBoard(id)
+    if (!data) return
+    current.value = data
+    const h = { stack: [data], cursor: 0 }
+    histories.set(id, h)
+    syncHistoryState(h)
+  }
+
   function syncHistoryState(h: History | undefined) {
     historyState.value = h ? { cursor: h.cursor, length: h.stack.length } : { cursor: 0, length: 0 }
   }
@@ -55,6 +92,7 @@ export const useBoardStore = defineStore('board', () => {
   const canRedo = computed(() => historyState.value.cursor < historyState.value.length - 1)
 
   async function refreshBoards() {
+    await saveQueue
     boards.value = await repo.listBoards()
   }
 
@@ -108,6 +146,7 @@ export const useBoardStore = defineStore('board', () => {
     await repo.deleteBoard(boardId)
     histories.delete(boardId)
     if (current.value?.board.id === boardId) {
+      dirty.value = false
       current.value = null
       syncHistoryState(undefined)
     }
@@ -122,6 +161,7 @@ export const useBoardStore = defineStore('board', () => {
       histories.delete(id)
     }
     if (current.value && boardIds.includes(current.value.board.id)) {
+      dirty.value = false
       current.value = null
       syncHistoryState(undefined)
     }
@@ -132,6 +172,8 @@ export const useBoardStore = defineStore('board', () => {
     if (current.value?.board.id === boardId) return true
     loading.value = true
     try {
+      // 다른 보드로 넘어가기 전에 밀린 변경은 저장해 둔다.
+      await save()
       await saveQueue
       const data = await repo.loadBoard(boardId)
       if (!data) {
@@ -153,15 +195,17 @@ export const useBoardStore = defineStore('board', () => {
   }
 
   function closeBoard() {
+    // 저장하지 않은 변경이 남아 있으면 잃지 않도록 저장하고 닫는다.
+    void save()
+    gesture = null
     current.value = null
     syncHistoryState(undefined)
   }
 
   // 끌어서 조정하는 동작(노브 등)은 움직이는 동안 같은 gesture 이름으로 apply를 반복 호출한다.
   // 그동안은 되돌리기 기록을 한 칸만 쓰고 저장도 미뤘다가 endGesture()에서 한 번 저장한다.
-  let gesture: string | null = null
   function endGesture() {
-    if (gesture && current.value) void persist(current.value)
+    if (gesture && current.value) commit(current.value)
     gesture = null
   }
 
@@ -197,7 +241,7 @@ export const useBoardStore = defineStore('board', () => {
     syncHistoryState(h)
 
     current.value = result.data
-    if (!gestureKey) void persist(result.data)
+    if (!gestureKey) commit(result.data)
     return result.id
   }
 
@@ -212,7 +256,7 @@ export const useBoardStore = defineStore('board', () => {
     h.cursor = next
     syncHistoryState(h)
     current.value = h.stack[next]
-    void persist(h.stack[next])
+    commit(h.stack[next])
   }
 
   const undo = () => jump(-1)
@@ -241,6 +285,10 @@ export const useBoardStore = defineStore('board', () => {
     deleteBoards,
     openBoard,
     closeBoard,
+    dirty,
+    save,
+    setAutosave,
+    discard,
     apply,
     endGesture,
     undo,

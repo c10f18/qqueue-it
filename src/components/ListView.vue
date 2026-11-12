@@ -54,7 +54,8 @@ function nodeIn(row: Extract<Row, { type: 'slot' }>, laneId: string) {
 const gridStyle = computed(() => ({
   gridTemplateColumns: `36px repeat(${Math.max(lanes.value.length, 1)}, minmax(160px, 1fr))`,
 }))
-const showNumbers = computed(() => props.data.board.settings.showSlotNumbers)
+// 슬롯 번호는 항상 표시한다.
+const showNumbers = true
 </script>
 
 <template>

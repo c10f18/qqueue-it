@@ -257,7 +257,7 @@ function resetAll() {
         >
           <div class="handle" title="끌어서 슬롯(행) 전체 이동" @pointerdown="startSlot($event, slotId, `${i + 1}번 슬롯`)">
             <span class="grip">⠿</span>
-            <span v-if="data.board.settings.showSlotNumbers" class="num">{{ i + 1 }}</span>
+            <span class="num">{{ i + 1 }}</span>
           </div>
 
           <div

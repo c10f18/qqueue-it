@@ -46,7 +46,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
 </script>
 
 <template>
-  <div class="overlay" @pointerdown.self="emit('close')">
+  <div class="overlay side-panel">
     <div class="dialog" role="dialog" aria-label="설정">
       <h2>설정</h2>
 
@@ -54,6 +54,17 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
         <span class="label">전체 배경 색</span>
         <ColorPicker :model-value="style.background" default-label="기본 배경" @update:model-value="(v) => set({ background: v })" />
       </div>
+
+      <label class="switch-row">
+        <span>그래프 바탕에 보드 이름 표시</span>
+        <input
+          type="checkbox"
+          class="switch"
+          role="switch"
+          :checked="style.showBoardName ?? false"
+          @change="set({ showBoardName: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
 
       <section>
         <h3>노드</h3>
@@ -175,6 +186,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           @click="
             set({
               background: undefined,
+              showBoardName: undefined,
               nodeSize: undefined,
               doneColor: undefined,
               doneMark: undefined,
