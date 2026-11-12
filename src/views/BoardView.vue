@@ -76,8 +76,9 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 
 // ── 패널 밖을 누르면 닫는다 ────────────────────────────────
 function onDocDown(e: PointerEvent) {
-  if (!panel.value) return
   const target = e.target as HTMLElement
+  if (layoutOpen.value && !target.closest('.layout-wrap')) layoutOpen.value = false
+  if (!panel.value) return
   if (target.closest('.side-panel .dialog, [data-panel-toggle]')) return
   panel.value = null
 }
@@ -86,24 +87,39 @@ function togglePanel(name: 'settings' | 'align') {
 }
 
 // ── 수정 모드 레이아웃: 그래프와 카드(타임테이블)를 어떻게 놓을지 ──
-type EditLayout = 'rows' | 'cols' | 'cards' | 'graph'
-const LAYOUTS: { value: EditLayout; label: string }[] = [
-  { value: 'rows', label: '위: 그래프 / 아래: 카드' },
-  { value: 'cols', label: '왼쪽: 그래프 / 오른쪽: 카드' },
-  { value: 'cards', label: '카드만' },
-  { value: 'graph', label: '그래프만' },
+// 그래프를 카드 영역의 어느 쪽에 붙일지(도크 위치) 또는 한쪽만 볼지를 고른다.
+type EditLayout = 'left' | 'right' | 'top' | 'bottom' | 'cards' | 'graph'
+interface LayoutOption {
+  value: EditLayout
+  label: string
+  /** 아이콘(18×14) 안에서 그래프가 차지하는 칸 */
+  fill?: { x: number; y: number; w: number; h: number }
+}
+const DOCK_LAYOUTS: LayoutOption[] = [
+  { value: 'left', label: '그래프를 왼쪽에', fill: { x: 3, y: 3, w: 5, h: 8 } },
+  { value: 'right', label: '그래프를 오른쪽에', fill: { x: 10, y: 3, w: 5, h: 8 } },
+  { value: 'top', label: '그래프를 위에', fill: { x: 3, y: 3, w: 12, h: 3.5 } },
+  { value: 'bottom', label: '그래프를 아래에', fill: { x: 3, y: 7.5, w: 12, h: 3.5 } },
 ]
+const FULL_LAYOUTS: LayoutOption[] = [
+  { value: 'cards', label: '카드만' },
+  { value: 'graph', label: '그래프만', fill: { x: 3, y: 3, w: 12, h: 8 } },
+]
+const LAYOUTS = [...DOCK_LAYOUTS, ...FULL_LAYOUTS]
+const layoutOpen = ref(false)
 const PREF_KEY = 'qqueue.editLayout'
 function defaultLayout(): EditLayout {
   if (!window.matchMedia('(min-width: 640px)').matches) return 'cards'
-  return window.matchMedia('(orientation: landscape)').matches ? 'rows' : 'cols'
+  return window.matchMedia('(orientation: landscape)').matches ? 'top' : 'left'
 }
 const layout = ref<EditLayout>(defaultLayout())
 /** 나눠 보는 레이아웃에서 그래프 영역이 차지하는 비율 */
 const ratio = ref(0.4)
 try {
   const saved = JSON.parse(localStorage.getItem(PREF_KEY) ?? 'null')
-  if (saved && LAYOUTS.some((l) => l.value === saved.layout)) layout.value = saved.layout
+  // 예전 이름(rows/cols)으로 기억해 둔 값도 받아 준다.
+  const name = saved?.layout === 'rows' ? 'top' : saved?.layout === 'cols' ? 'left' : saved?.layout
+  if (LAYOUTS.some((l) => l.value === name)) layout.value = name
   if (saved && typeof saved.ratio === 'number') ratio.value = Math.min(0.85, Math.max(0.15, saved.ratio))
 } catch {
   // 저장소를 못 쓰면 기본 레이아웃으로 시작한다.
@@ -115,7 +131,13 @@ watch([layout, ratio], () => {
     // 기억하지 못해도 동작에는 지장이 없다.
   }
 })
-const split = computed(() => layout.value === 'rows' || layout.value === 'cols')
+const split = computed(() => DOCK_LAYOUTS.some((l) => l.value === layout.value))
+const vertical = computed(() => layout.value === 'top' || layout.value === 'bottom')
+const currentLayout = computed(() => LAYOUTS.find((l) => l.value === layout.value)!)
+function pickLayout(value: EditLayout) {
+  layout.value = value
+  layoutOpen.value = false
+}
 
 const body = ref<HTMLElement | null>(null)
 const resizing = ref(false)
@@ -130,13 +152,22 @@ function resizeStart(e: PointerEvent) {
 function resizeMove(e: PointerEvent) {
   if (!resizing.value || !body.value) return
   const rect = body.value.getBoundingClientRect()
-  const value = layout.value === 'rows' ? (e.clientY - rect.top) / rect.height : (e.clientX - rect.left) / rect.width
+  // 그래프가 붙은 쪽 가장자리에서 포인터까지의 거리가 그래프 영역의 크기다.
+  const value =
+    layout.value === 'top'
+      ? (e.clientY - rect.top) / rect.height
+      : layout.value === 'bottom'
+        ? (rect.bottom - e.clientY) / rect.height
+        : layout.value === 'right'
+          ? (rect.right - e.clientX) / rect.width
+          : (e.clientX - rect.left) / rect.width
   ratio.value = Math.min(0.85, Math.max(0.15, value))
 }
 function resizeKey(e: KeyboardEvent) {
-  const back = layout.value === 'rows' ? 'ArrowUp' : 'ArrowLeft'
-  const forward = layout.value === 'rows' ? 'ArrowDown' : 'ArrowRight'
-  const delta = e.key === back ? -0.05 : e.key === forward ? 0.05 : 0
+  // 방향키가 가리키는 쪽으로 경계가 움직이게 한다.
+  const grow = { left: 'ArrowRight', right: 'ArrowLeft', top: 'ArrowDown', bottom: 'ArrowUp' }[layout.value as string]
+  const shrink = { left: 'ArrowLeft', right: 'ArrowRight', top: 'ArrowUp', bottom: 'ArrowDown' }[layout.value as string]
+  const delta = e.key === grow ? 0.05 : e.key === shrink ? -0.05 : 0
   if (!delta) return
   e.preventDefault()
   ratio.value = Math.min(0.85, Math.max(0.15, ratio.value + delta))
@@ -208,20 +239,52 @@ onUnmounted(() => {
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
         <button class="btn" @click="bulkOpen = true">일괄 진행</button>
 
-        <div class="layout-pick" role="radiogroup" aria-label="레이아웃">
+        <div class="layout-wrap">
           <button
-            v-for="l in LAYOUTS"
-            :key="l.value"
-            type="button"
-            role="radio"
-            :class="{ on: layout === l.value }"
-            :aria-checked="layout === l.value"
-            :title="l.label"
-            :aria-label="l.label"
-            @click="layout = l.value"
+            class="btn layout-btn"
+            title="레이아웃 선택"
+            aria-haspopup="true"
+            :aria-expanded="layoutOpen"
+            @click="((panel = null), (layoutOpen = !layoutOpen))"
           >
-            <span class="lay" :class="l.value"><i /><i /></span>
+            <svg class="lay" viewBox="0 0 18 14" aria-hidden="true">
+              <rect x="1" y="1" width="16" height="12" rx="2.5" />
+              <rect v-if="currentLayout.fill" class="fill" v-bind="{ x: currentLayout.fill.x, y: currentLayout.fill.y, width: currentLayout.fill.w, height: currentLayout.fill.h }" rx="1" />
+              <path v-else class="lines" d="M4.5 4.5h9M4.5 7h9M4.5 9.5h9" />
+            </svg>
+            레이아웃
           </button>
+
+          <div v-if="layoutOpen" class="layout-pop" role="dialog" aria-label="레이아웃 선택">
+            <template
+              v-for="group in [
+                { title: '그래프 위치', items: DOCK_LAYOUTS },
+                { title: '한쪽만 보기', items: FULL_LAYOUTS },
+              ]"
+              :key="group.title"
+            >
+              <span class="pop-title">{{ group.title }}</span>
+              <div class="pop-row" role="radiogroup" :aria-label="group.title">
+                <button
+                  v-for="l in group.items"
+                  :key="l.value"
+                  type="button"
+                  role="radio"
+                  :class="{ on: layout === l.value }"
+                  :aria-checked="layout === l.value"
+                  :title="l.label"
+                  :aria-label="l.label"
+                  @click="pickLayout(l.value)"
+                >
+                  <svg class="lay" viewBox="0 0 18 14" aria-hidden="true">
+                    <rect x="1" y="1" width="16" height="12" rx="2.5" />
+                    <rect v-if="l.fill" class="fill" v-bind="{ x: l.fill.x, y: l.fill.y, width: l.fill.w, height: l.fill.h }" rx="1" />
+                    <path v-else class="lines" d="M4.5 4.5h9M4.5 7h9M4.5 9.5h9" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
         </div>
 
         <span v-if="inactiveLanes.length" class="inactive">
@@ -254,7 +317,7 @@ onUnmounted(() => {
         class="splitter"
         role="separator"
         tabindex="0"
-        :aria-orientation="layout === 'rows' ? 'horizontal' : 'vertical'"
+        :aria-orientation="vertical ? 'horizontal' : 'vertical'"
         :aria-valuenow="Math.round(ratio * 100)"
         aria-valuemin="15"
         aria-valuemax="85"
@@ -351,11 +414,18 @@ onUnmounted(() => {
   display: flex;
   width: 100%;
 }
-.edit-layout.rows {
+/* 그래프가 DOM에서 먼저 오므로, 오른쪽·아래에 붙일 때는 방향을 뒤집는다. */
+.edit-layout.left {
+  flex-direction: row;
+}
+.edit-layout.right {
+  flex-direction: row-reverse;
+}
+.edit-layout.top {
   flex-direction: column;
 }
-.edit-layout.cols {
-  flex-direction: row;
+.edit-layout.bottom {
+  flex-direction: column-reverse;
 }
 .graph-pane {
   flex: 1 1 auto;
@@ -363,8 +433,10 @@ onUnmounted(() => {
   min-width: 0;
   overflow: hidden;
 }
-.rows .graph-pane,
-.cols .graph-pane {
+.left .graph-pane,
+.right .graph-pane,
+.top .graph-pane,
+.bottom .graph-pane {
   flex: 0 0 40%;
 }
 .timetable-pane {
@@ -380,11 +452,13 @@ onUnmounted(() => {
   background: var(--border);
   touch-action: none;
 }
-.rows .splitter {
+.top .splitter,
+.bottom .splitter {
   height: 6px;
   cursor: row-resize;
 }
-.cols .splitter {
+.left .splitter,
+.right .splitter {
   width: 6px;
   cursor: col-resize;
 }
@@ -397,11 +471,13 @@ onUnmounted(() => {
   background: var(--text-dim);
   opacity: 0.6;
 }
-.rows .splitter::after {
+.top .splitter::after,
+.bottom .splitter::after {
   width: 36px;
   height: 2px;
 }
-.cols .splitter::after {
+.left .splitter::after,
+.right .splitter::after {
   width: 2px;
   height: 36px;
 }
@@ -414,49 +490,73 @@ onUnmounted(() => {
 .resizing {
   user-select: none;
 }
-/* 레이아웃 선택: 작은 그림으로 배치를 보여 준다 */
-.layout-pick {
+/* 레이아웃 선택: 창 도크 위치를 고르는 메뉴처럼, 테두리 안에 그래프가 붙는 쪽을 칠한 아이콘으로 보여 준다 */
+.layout-wrap {
+  position: relative;
+}
+.layout-btn {
   display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.layout-pick button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  background: var(--surface);
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.layout-pick button.on {
-  background: var(--accent);
-  color: #fff;
+  gap: 6px;
+  align-items: center;
 }
 .lay {
+  width: 22px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.lay .fill {
+  fill: currentColor;
+  stroke: none;
+}
+.lay .lines {
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+.layout-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.pop-title {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.pop-title:not(:first-child) {
+  margin-top: 6px;
+}
+.pop-row {
   display: flex;
-  gap: 2px;
-  width: 18px;
-  height: 14px;
+  gap: 4px;
 }
-.lay i {
-  flex: 1;
-  border: 1.5px solid currentColor;
-  border-radius: 2px;
+.pop-row button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
 }
-/* 첫 칸 = 그래프(채움), 둘째 칸 = 카드(테두리만) */
-.lay i:first-child {
-  background: currentColor;
+.pop-row button:hover {
+  background: var(--surface-2);
 }
-.lay.rows {
-  flex-direction: column;
-}
-.lay.cards i:first-child,
-.lay.graph i:last-child {
-  display: none;
+.pop-row button.on {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .view-layout {
   display: flex;
