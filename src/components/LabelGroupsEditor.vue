@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import {
   addLabelGroup,
   labelGroupsOf,
@@ -73,9 +73,28 @@ function knobKey(id: string, current: number, e: KeyboardEvent) {
   e.preventDefault()
   patch(id, { angle: current + delta })
 }
-function typeAngle(id: string, e: Event) {
-  const value = (e.target as HTMLInputElement).value
-  if (value !== '' && Number.isFinite(Number(value))) patch(id, { angle: Number(value) })
+// 각도는 평소에는 글자로만 보이고, 누르면 그 자리에서 숫자 입력 칸으로 바뀐다.
+const angleEditId = ref<string | null>(null)
+const angleDraft = ref('')
+async function startAngle(id: string, current: number) {
+  angleDraft.value = String(current)
+  angleEditId.value = id
+  await nextTick()
+  const field = document.getElementById(`angle-${id}`) as HTMLInputElement | null
+  field?.focus()
+  field?.select()
+}
+function onAngleInput(e: Event) {
+  const input = e.target as HTMLInputElement
+  angleDraft.value = input.value.replace(/\D/g, '').slice(0, 3)
+  input.value = angleDraft.value
+}
+function commitAngle(id: string, current: number) {
+  if (angleEditId.value !== id) return
+  angleEditId.value = null
+  if (angleDraft.value === '') return
+  const value = Number(angleDraft.value)
+  if (value !== current) patch(id, { angle: value })
 }
 
 // 3×3 위치 판: 가운데가 노드(=각도 노브)
@@ -171,19 +190,32 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
         </div>
 
         <div class="side">
-          <label class="angle">
+          <span class="angle">
             <span class="muted">각도</span>
             <input
-              class="input"
-              type="number"
-              min="0"
-              max="359"
-              :value="labelAngle(g)"
-              :aria-label="`${g.name} 위치 각도(도)`"
-              @change="typeAngle(g.id, $event)"
+              v-if="angleEditId === g.id"
+              :id="`angle-${g.id}`"
+              class="angle-field"
+              inputmode="numeric"
+              maxlength="3"
+              :value="angleDraft"
+              :aria-label="`${g.name} 위치 각도(도) 입력`"
+              @input="onAngleInput"
+              @keydown.enter.prevent="commitAngle(g.id, labelAngle(g))"
+              @keydown.esc.prevent="angleEditId = null"
+              @blur="commitAngle(g.id, labelAngle(g))"
             />
-            <span class="muted">°</span>
-          </label>
+            <button
+              v-else
+              type="button"
+              class="angle-text"
+              title="눌러서 숫자로 입력"
+              :aria-label="`${g.name} 위치 각도 ${labelAngle(g)}도, 눌러서 입력`"
+              @click="startAngle(g.id, labelAngle(g))"
+            >
+              {{ labelAngle(g) }}°
+            </button>
+          </span>
           <button
             type="button"
             class="font-btn"
@@ -327,9 +359,28 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   align-items: center;
   font-size: 12px;
 }
-.angle input {
-  width: 64px;
-  padding: 2px 6px;
+.angle-text,
+.angle-field {
+  width: 48px;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.angle-text {
+  cursor: text;
+}
+.angle-text:hover {
+  border-color: var(--border);
+}
+.angle-field {
+  border-color: var(--accent);
+  background: var(--surface);
+  outline: none;
 }
 .side {
   display: grid;
