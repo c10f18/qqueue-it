@@ -87,10 +87,22 @@ function fit() {
   const pts = [...layout.value.pos.values(), ...layout.value.heads.map((h) => h.pos)]
   view.value = { ...DEFAULT_VIEW, zoom: fitZoom(pts, size.value.w, size.value.h) }
 }
-/** 시점 리셋: 보기 모드에서는 저장해 둔 뷰로, 그 밖에는 화면에 맞춘다. */
+/** 뷰 리셋: 저장해 둔 뷰로 돌아간다. 저장한 뷰가 없으면 화면에 맞춘다. */
 function resetView() {
-  if (!props.editable && props.camera) view.value = { ...props.camera }
+  if (props.camera) view.value = { ...props.camera }
   else fit()
+}
+/** 뷰 초기화: 저장한 뷰와 상관없이 맨 처음의 기본 시점(화면에 맞춤)으로 돌아간다. */
+function initView() {
+  viewMenuOpen.value = false
+  fit()
+}
+
+// 리셋 버튼의 ▾(또는 우클릭) 메뉴: 자주 쓰지 않는 뷰 기능을 모아 둔다.
+const viewMenuOpen = ref(false)
+const viewMenu = ref<HTMLElement | null>(null)
+function onDocDownForMenu(e: PointerEvent) {
+  if (viewMenuOpen.value && !viewMenu.value?.contains(e.target as Node)) viewMenuOpen.value = false
 }
 /** 100%: 설정에서 정한 크기 그대로 보이는 배율 */
 function zoomActual() {
@@ -107,10 +119,8 @@ const atSavedView = computed(() => {
 function saveView() {
   emit('camera', { ...view.value })
 }
-function goSavedView() {
-  if (props.camera) view.value = { ...props.camera }
-}
 function clearSavedView() {
+  viewMenuOpen.value = false
   emit('camera', null)
 }
 const zoomPercent = computed(() => Math.round(view.value.zoom * 100))
@@ -661,6 +671,7 @@ watch(
 )
 
 onMounted(() => {
+  document.addEventListener('pointerdown', onDocDownForMenu, true)
   document.fonts?.addEventListener('loadingdone', schedule)
   ro = new ResizeObserver(resize)
   if (host.value) ro.observe(host.value)
@@ -668,6 +679,7 @@ onMounted(() => {
   resize()
 })
 onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocDownForMenu, true)
   document.fonts?.removeEventListener('loadingdone', schedule)
   ro?.disconnect()
   canvas.value?.removeEventListener('wheel', onWheel)
@@ -711,34 +723,53 @@ watch(
       <button title="확대" @click="zoomBy(1.25)">＋</button>
       <button title="축소" @click="zoomBy(0.8)">－</button>
       <button class="zoom" title="지금 확대 배율. 누르면 100%(설정한 크기 그대로)로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
-      <button
-        :title="!editable && camera ? '저장된 뷰로 되돌리기 (더블클릭)' : '시점 리셋: 이동·회전을 초기화하고 화면에 맞추기 (더블클릭)'"
-        @click="resetView"
-      >
-        ⛶
-      </button>
-      <template v-if="editable">
+      <!-- 뷰 리셋 + ▾ 메뉴(뷰 초기화, 저장된 뷰 지우기). 우클릭으로도 메뉴가 열린다. -->
+      <div ref="viewMenu" class="split">
         <button
-          class="snap"
-          :class="{ on: atSavedView }"
-          :title="
-            atSavedView
-              ? '지금 시점이 저장된 뷰입니다 (보기 모드에서 이대로 보입니다)'
-              : '뷰 저장: 지금의 확대·이동·회전을 보기 모드에서 보여 줄 뷰로 저장'
-          "
-          @click="saveView"
+          class="main"
+          :title="camera ? '뷰 리셋: 저장된 뷰로 돌아가기 (더블클릭)' : '뷰 리셋: 화면에 맞추기 (더블클릭). 저장된 뷰가 없습니다'"
+          aria-label="뷰 리셋"
+          @click="resetView"
+          @contextmenu.prevent="viewMenuOpen = true"
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-            <path d="M2 5.5h2.2l1-1.5h5.6l1 1.5H14v7H2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
-            <circle cx="8" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3" />
-          </svg>
-          뷰 저장
+          ⛶
         </button>
-        <button v-if="camera && !atSavedView" class="text" title="저장된 뷰로 이동" @click="goSavedView">저장된 뷰</button>
-        <button v-if="camera" class="text" title="저장된 뷰 지우기: 보기 모드가 다시 화면에 맞춰 보여 줍니다" aria-label="저장된 뷰 지우기" @click="clearSavedView">
-          뷰 해제
+        <button
+          class="caret"
+          title="뷰 메뉴"
+          aria-label="뷰 메뉴"
+          aria-haspopup="true"
+          :aria-expanded="viewMenuOpen"
+          @click="viewMenuOpen = !viewMenuOpen"
+        >
+          ▾
         </button>
-      </template>
+        <div v-if="viewMenuOpen" class="view-menu" role="menu">
+          <button role="menuitem" @click="initView">
+            뷰 초기화 <span class="muted">기본 시점(화면에 맞춤)</span>
+          </button>
+          <button v-if="editable" role="menuitem" :disabled="!camera" @click="clearSavedView">
+            저장된 뷰 지우기 <span class="muted">{{ camera ? '보기 모드도 기본 시점으로' : '저장된 뷰 없음' }}</span>
+          </button>
+        </div>
+      </div>
+      <button
+        v-if="editable"
+        class="snap"
+        :class="{ on: atSavedView }"
+        :title="
+          atSavedView
+            ? '지금 시점이 저장된 뷰입니다 (보기 모드에서 이대로 보입니다)'
+            : '뷰 저장: 지금의 확대·이동·회전을 보기 모드에서 보여 줄 뷰로 저장'
+        "
+        @click="saveView"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M2 5.5h2.2l1-1.5h5.6l1 1.5H14v7H2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+          <circle cx="8" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+        </svg>
+        뷰 저장
+      </button>
       <button :class="{ on: showLabels }" title="이름 표시" @click="showLabels = !showLabels">Aa</button>
     </div>
 
@@ -808,8 +839,56 @@ canvas.rotate {
   align-items: center;
   font-size: 12px;
 }
-.tools .text {
-  font-size: 12px;
+/* 리셋 버튼과 ▾를 한 덩어리로 붙인다 */
+.split {
+  position: relative;
+  display: inline-flex;
+}
+.tools .split .main {
+  border-radius: 8px 0 0 8px;
+}
+.tools .split .caret {
+  min-width: 18px;
+  padding: 0 3px;
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  font-size: 10px;
+}
+.view-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 250px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.tools .view-menu button {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: baseline;
+  height: auto;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+}
+.tools .view-menu button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.tools .view-menu button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.view-menu .muted {
+  font-size: 11px;
 }
 .tools .zoom {
   min-width: 48px;
