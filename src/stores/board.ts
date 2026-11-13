@@ -37,16 +37,16 @@ export const useBoardStore = defineStore('board', () => {
   const histories = new Map<string, History>()
   const historyState = shallowRef({ cursor: 0, length: 0 })
 
-  // 그래프 시점(이동·회전·확대)은 되돌리기 기록과 따로 들고 있다가 저장할 때 보드 설정에 합친다.
-  // (시점을 기록에 넣으면 Ctrl+Z가 작업 대신 화면 이동을 되돌리게 된다.)
+  // 저장한 그래프 뷰(이동·회전·확대). 수정 모드에서 "뷰 저장"을 눌러야만 바뀐다.
+  // 되돌리기 기록과 따로 들고 있다가 저장할 때 보드 설정에 합친다.
   const camera = shallowRef<GraphView | null>(null)
   function withCamera(data: BoardData): BoardData {
-    if (!camera.value || data.board.id !== current.value?.board.id) return data
+    if (data.board.id !== current.value?.board.id) return data
     const settings = data.board.settings
-    return {
-      ...data,
-      board: { ...data.board, settings: { ...settings, graph: { ...settings.graph, view: camera.value } } },
-    }
+    const graph = { ...settings.graph }
+    if (camera.value) graph.view = camera.value
+    else delete graph.view
+    return { ...data, board: { ...data.board, settings: { ...settings, graph } } }
   }
 
   let gesture: string | null = null
@@ -83,8 +83,8 @@ export const useBoardStore = defineStore('board', () => {
     autosave.value = on
     if (on) void save()
   }
-  /** 수정 모드에서 그래프 시점을 바꿨을 때 부른다. */
-  function setCamera(view: GraphView) {
+  /** 수정 모드에서 "뷰 저장"을 눌렀을 때(view) 또는 저장한 뷰를 지울 때(null) 부른다. */
+  function setCamera(view: GraphView | null) {
     if (!current.value) return
     camera.value = view
     commit(current.value)

@@ -25,10 +25,11 @@ import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type Vie
 // Canvas 2D 직접 구현 — DOM 없이 픽셀만 그려 노드가 많아도 가볍다 (NFR-05).
 // 진행 방향·완료 표시·화살표·배경은 보드의 그래프 설정(board.settings.graph)을 따른다.
 // fitTick: 값이 바뀔 때마다 화면을 다시 맞춘다 (정렬 버튼).
-// camera: 저장해 둔 시점. 있으면 그 시점으로 연다.
-// editable: 수정 모드. 시점을 바꾸면 camera 이벤트로 알려 저장되게 한다.
+// camera: "뷰 저장"으로 저장해 둔 시점. 있으면 그 시점으로 연다. 없으면 화면에 맞춘다.
+// editable: 수정 모드. 뷰 저장·해제 버튼을 보여 주고 camera 이벤트로 알린다.
+//           평소의 확대·이동·회전은 저장되지 않는다.
 const props = defineProps<{ data: BoardData; fitTick?: number; camera?: GraphView | null; editable?: boolean }>()
-const emit = defineEmits<{ camera: [view: GraphView] }>()
+const emit = defineEmits<{ camera: [view: GraphView | null] }>()
 
 const HEAD_OFFSET = 0.85 // 레인 머리글이 첫 슬롯보다 앞에 놓이는 거리(슬롯 간격 단위)
 
@@ -81,26 +82,12 @@ const layout = computed(() => {
   return { nodes, pos, heads, colorOf, edges: computeDerivedEdges(props.data) }
 })
 
-// 수정 모드에서 시점이 바뀌면 조금 모았다가 한 번만 알린다 (휠 확대처럼 연달아 바뀌는 경우).
-let cameraTimer = 0
-function sendCamera() {
-  clearTimeout(cameraTimer)
-  cameraTimer = 0
-  emit('camera', { ...view.value })
-}
-function commitView() {
-  if (!props.editable) return
-  clearTimeout(cameraTimer)
-  cameraTimer = window.setTimeout(sendCamera, 200)
-}
-
 /** 이동·회전을 초기화하고 전체가 보이게 확대 배율을 맞춘다. */
-function fit(save = true) {
+function fit() {
   const pts = [...layout.value.pos.values(), ...layout.value.heads.map((h) => h.pos)]
   view.value = { ...DEFAULT_VIEW, zoom: fitZoom(pts, size.value.w, size.value.h) }
-  if (save) commitView()
 }
-/** 시점 리셋: 보기 모드에서는 저장해 둔 시점으로, 그 밖에는 화면에 맞춘다. */
+/** 시점 리셋: 보기 모드에서는 저장해 둔 뷰로, 그 밖에는 화면에 맞춘다. */
 function resetView() {
   if (!props.editable && props.camera) view.value = { ...props.camera }
   else fit()
@@ -108,7 +95,23 @@ function resetView() {
 /** 100%: 설정에서 정한 크기 그대로 보이는 배율 */
 function zoomActual() {
   view.value = { ...view.value, zoom: 1 }
-  commitView()
+}
+
+// ── 뷰 저장: 지금 시점을 보기 모드에서 보여 줄 뷰로 저장한다 (수정 모드 전용) ──
+const VIEW_KEYS = ['yaw', 'pitch', 'zoom', 'panX', 'panY'] as const
+/** 지금 시점이 저장해 둔 뷰와 같은지 */
+const atSavedView = computed(() => {
+  const saved = props.camera
+  return !!saved && VIEW_KEYS.every((k) => Math.abs(saved[k] - view.value[k]) < 1e-6)
+})
+function saveView() {
+  emit('camera', { ...view.value })
+}
+function goSavedView() {
+  if (props.camera) view.value = { ...props.camera }
+}
+function clearSavedView() {
+  emit('camera', null)
 }
 const zoomPercent = computed(() => Math.round(view.value.zoom * 100))
 
@@ -583,7 +586,7 @@ function resize() {
     sized = true
     // 저장해 둔 시점이 있으면 그대로 열고, 없으면 화면에 맞춘다.
     if (props.camera) view.value = { ...props.camera }
-    else fit(false)
+    else fit()
   }
   schedule()
 }
@@ -614,7 +617,6 @@ function onPointerMove(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
   const d = drag
   drag = null
-  if (d?.moved) commitView()
   if (!d || d.moved) return
   const rect = canvas.value!.getBoundingClientRect()
   selectedId.value = hit(e.clientX - rect.left, e.clientY - rect.top)
@@ -637,7 +639,6 @@ function onWheel(e: WheelEvent) {
 function zoomBy(factor: number) {
   const v = view.value
   view.value = { ...v, zoom: Math.max(0.1, Math.min(4, v.zoom * factor)) }
-  commitView()
 }
 
 const selectedNode = computed(() => layout.value.nodes.find((n) => n.id === selectedId.value))
@@ -671,7 +672,6 @@ onUnmounted(() => {
   ro?.disconnect()
   canvas.value?.removeEventListener('wheel', onWheel)
   cancelAnimationFrame(raf)
-  if (cameraTimer) sendCamera()
 })
 
 watch([view, layout, selectedId, showLabels, style], schedule)
@@ -684,7 +684,7 @@ watch([direction, slotGap, laneGap, () => props.fitTick], () => fit())
 watch(
   () => layout.value.nodes.length === 0,
   (empty, wasEmpty) => {
-    if (!empty && wasEmpty) fit(false)
+    if (!empty && wasEmpty) fit()
   },
 )
 </script>
@@ -712,11 +712,33 @@ watch(
       <button title="축소" @click="zoomBy(0.8)">－</button>
       <button class="zoom" title="지금 확대 배율. 누르면 100%(설정한 크기 그대로)로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
       <button
-        :title="!editable && camera ? '저장된 시점으로 되돌리기 (더블클릭)' : '시점 리셋: 이동·회전을 초기화하고 화면에 맞추기 (더블클릭)'"
+        :title="!editable && camera ? '저장된 뷰로 되돌리기 (더블클릭)' : '시점 리셋: 이동·회전을 초기화하고 화면에 맞추기 (더블클릭)'"
         @click="resetView"
       >
         ⛶
       </button>
+      <template v-if="editable">
+        <button
+          class="snap"
+          :class="{ on: atSavedView }"
+          :title="
+            atSavedView
+              ? '지금 시점이 저장된 뷰입니다 (보기 모드에서 이대로 보입니다)'
+              : '뷰 저장: 지금의 확대·이동·회전을 보기 모드에서 보여 줄 뷰로 저장'
+          "
+          @click="saveView"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path d="M2 5.5h2.2l1-1.5h5.6l1 1.5H14v7H2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+            <circle cx="8" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+          </svg>
+          뷰 저장
+        </button>
+        <button v-if="camera && !atSavedView" class="text" title="저장된 뷰로 이동" @click="goSavedView">저장된 뷰</button>
+        <button v-if="camera" class="text" title="저장된 뷰 지우기: 보기 모드가 다시 화면에 맞춰 보여 줍니다" aria-label="저장된 뷰 지우기" @click="clearSavedView">
+          뷰 해제
+        </button>
+      </template>
       <button :class="{ on: showLabels }" title="이름 표시" @click="showLabels = !showLabels">Aa</button>
     </div>
 
@@ -779,6 +801,15 @@ canvas.rotate {
   border-radius: 8px;
   background: var(--surface);
   cursor: pointer;
+}
+.tools .snap {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 12px;
+}
+.tools .text {
+  font-size: 12px;
 }
 .tools .zoom {
   min-width: 48px;
