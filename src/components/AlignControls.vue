@@ -3,9 +3,10 @@ import { computed } from 'vue'
 import { GRAPH_RANGES, setGraphStyle, type BoardData, type GraphDirection, type GraphStyle } from '../domain'
 import { useBoardStore } from '../stores/board'
 
-// 정렬: 방향 칸을 누르면 그 방향으로 노드를 한 번 정렬하고(화면 이동·회전·확대도 초기화) 간격을 조정한다.
+// 정렬(설정 패널의 "그래프" 탭 안): 방향 칸을 누르면 그 방향으로 노드를 한 번 정렬하고
+// (화면 이동·회전·확대도 초기화) 간격을 조정한다.
 const props = defineProps<{ data: BoardData }>()
-const emit = defineEmits<{ close: []; aligned: [] }>()
+const emit = defineEmits<{ aligned: [] }>()
 const store = useBoardStore()
 
 const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
@@ -25,6 +26,7 @@ const DIRECTION_GRID: ({ dir: GraphDirection; arrow: string; label: string } | n
   { dir: 'down', arrow: '↓', label: '아래로' },
   { dir: 'down-right', arrow: '↘', label: '오른쪽 아래로' },
 ]
+const currentArrow = computed(() => DIRECTION_GRID.find((d) => d?.dir === direction.value)?.arrow)
 
 function align(dir: GraphDirection) {
   // 같은 방향이면 데이터는 그대로 두고(되돌리기 기록을 늘리지 않는다) 화면만 다시 맞춘다.
@@ -41,84 +43,76 @@ function resetGaps() {
 </script>
 
 <template>
-  <div class="overlay side-panel">
-    <div class="dialog" role="dialog" aria-label="정렬">
-      <h2>정렬</h2>
-
-      <div class="field">
-        <span class="label">방향을 누르면 그 방향으로 정렬하고 화면에 맞춥니다</span>
-        <div class="dir-grid">
-          <template v-for="(d, i) in DIRECTION_GRID" :key="i">
-            <button
-              v-if="d"
-              type="button"
-              :class="{ on: direction === d.dir }"
-              :title="`${d.label} 정렬`"
-              :aria-label="`${d.label} 정렬`"
-              @click="align(d.dir)"
-            >
-              {{ d.arrow }}
-            </button>
-            <span v-else class="center" aria-hidden="true" />
-          </template>
-        </div>
+  <div class="align">
+    <div class="top">
+      <div class="dir-grid">
+        <template v-for="(d, i) in DIRECTION_GRID" :key="i">
+          <button
+            v-if="d"
+            type="button"
+            :class="{ on: direction === d.dir }"
+            :title="`${d.label} 정렬`"
+            :aria-label="`${d.label} 정렬`"
+            @click="align(d.dir)"
+          >
+            {{ d.arrow }}
+          </button>
+          <span v-else class="center" aria-hidden="true" />
+        </template>
       </div>
-
-      <button type="button" class="btn small realign" @click="align(direction)">
-        {{ DIRECTION_GRID.find((d) => d?.dir === direction)?.arrow }} 지금 방향으로 다시 정렬
-      </button>
-
-      <div class="field">
-        <label for="a-slot">노드 간 간격 {{ slotGap }}</label>
-        <input
-          id="a-slot"
-          type="range"
-          :min="GRAPH_RANGES.slotGap.min"
-          :max="GRAPH_RANGES.slotGap.max"
-          :step="GRAPH_RANGES.slotGap.step"
-          :value="slotGap"
-          @change="setGap('slotGap', $event)"
-        />
-      </div>
-      <div class="field">
-        <label for="a-lane">레인 간 간격 {{ laneGap }}</label>
-        <input
-          id="a-lane"
-          type="range"
-          :min="GRAPH_RANGES.laneGap.min"
-          :max="GRAPH_RANGES.laneGap.max"
-          :step="GRAPH_RANGES.laneGap.step"
-          :value="laneGap"
-          @change="setGap('laneGap', $event)"
-        />
-      </div>
-
-      <div class="actions">
-        <button type="button" class="btn" @click="resetGaps">간격 기본값</button>
-        <span style="flex: 1" />
-        <button type="button" class="btn primary" @click="emit('close')">닫기</button>
+      <div class="side">
+        <span class="muted">방향을 누르면 그 방향으로 정렬하고 화면에 맞춥니다.</span>
+        <button type="button" class="btn small" @click="align(direction)">{{ currentArrow }} 다시 정렬</button>
       </div>
     </div>
+
+    <div class="field">
+      <label for="a-slot">노드 간 간격 {{ slotGap }}</label>
+      <input
+        id="a-slot"
+        type="range"
+        :min="GRAPH_RANGES.slotGap.min"
+        :max="GRAPH_RANGES.slotGap.max"
+        :step="GRAPH_RANGES.slotGap.step"
+        :value="slotGap"
+        @change="setGap('slotGap', $event)"
+      />
+    </div>
+    <div class="field">
+      <label for="a-lane">레인 간 간격 {{ laneGap }}</label>
+      <input
+        id="a-lane"
+        type="range"
+        :min="GRAPH_RANGES.laneGap.min"
+        :max="GRAPH_RANGES.laneGap.max"
+        :step="GRAPH_RANGES.laneGap.step"
+        :value="laneGap"
+        @change="setGap('laneGap', $event)"
+      />
+    </div>
+    <button type="button" class="btn small" @click="resetGaps">간격 기본값</button>
   </div>
 </template>
 
 <style scoped>
-.overlay {
-  place-items: start end;
-  z-index: 40;
-  background: transparent;
-  pointer-events: none;
+.top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
 }
-.dialog {
-  width: min(280px, 100%);
-  border: 1px solid var(--border);
-  pointer-events: auto;
+.side {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  font-size: 12px;
 }
 input[type='range'] {
   width: 100%;
 }
 .dir-grid {
   display: grid;
+  flex: none;
   grid-template-columns: repeat(3, 40px);
   gap: 4px;
 }
@@ -146,8 +140,5 @@ input[type='range'] {
   height: 16px;
   border: 2px solid var(--text-dim);
   border-radius: 50%;
-}
-.realign {
-  margin-bottom: 14px;
 }
 </style>

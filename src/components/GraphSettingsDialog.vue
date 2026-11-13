@@ -1,3 +1,11 @@
+<script lang="ts">
+import { ref } from 'vue'
+
+type SettingsTab = 'theme' | 'graph' | 'node' | 'line'
+// 패널을 닫았다 열어도 마지막에 보던 탭에서 이어지도록 컴포넌트 밖에 둔다.
+const tab = ref<SettingsTab>('theme')
+</script>
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
@@ -14,13 +22,21 @@ import {
 import { ATTR_KEYS, ATTR_LABELS, resolveAttrs, type AttrKey } from '../composables/useNodeDisplay'
 import { SKIN_MODULES } from './skins'
 import { useBoardStore } from '../stores/board'
+import AlignControls from './AlignControls.vue'
 import ColorPicker from './ColorPicker.vue'
 import LabelGroupsEditor from './LabelGroupsEditor.vue'
 
-// 그래프 전체에 적용되는 표시 설정. 바꾸는 즉시 그래프에 반영되고 되돌리기(Ctrl+Z) 대상이다.
-// 방향·간격은 여기가 아니라 "정렬" 패널(AlignDialog)에서 다룬다.
+// 보드의 모든 표시 설정. 범위별로 탭을 나눈다: 테마 / 그래프(표시·정렬) / 노드 / 라인.
+// 바꾸는 즉시 반영되고 되돌리기(Ctrl+Z) 대상이다.
 const props = defineProps<{ data: BoardData }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; aligned: [] }>()
+
+const TABS: { id: SettingsTab; label: string; hint: string }[] = [
+  { id: 'theme', label: '테마', hint: '보기 모드의 테마와 방식' },
+  { id: 'graph', label: '그래프', hint: '그래프 표시 속성과 정렬' },
+  { id: 'node', label: '노드', hint: '노드 크기·라벨·완료 표시' },
+  { id: 'line', label: '라인', hint: '연결 화살표' },
+]
 const store = useBoardStore()
 
 const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
@@ -65,8 +81,24 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
     <div class="dialog" role="dialog" aria-label="설정">
       <h2>설정</h2>
 
-      <section class="first">
-        <h3>보기 모드 테마 (리스트)</h3>
+      <div class="tabs" role="tablist" aria-label="설정 분류">
+        <button
+          v-for="t in TABS"
+          :key="t.id"
+          type="button"
+          role="tab"
+          :class="{ on: tab === t.id }"
+          :aria-selected="tab === t.id"
+          :title="t.hint"
+          @click="tab = t.id"
+        >
+          {{ t.label }}
+        </button>
+      </div>
+
+      <!-- 테마: 보기 모드 리스트의 테마와 방식 -->
+      <div v-if="tab === 'theme'" role="tabpanel">
+        <p class="muted intro">보기 모드의 리스트가 어떻게 보일지 정합니다.</p>
         <div class="field">
           <label for="l-skin">테마</label>
           <select id="l-skin" class="input" :value="list.skin ?? 'simple'" @change="setList({ skin: ($event.target as HTMLSelectElement).value })">
@@ -92,11 +124,11 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             </label>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section>
-        <h3>그래프</h3>
-
+      <!-- 그래프: 표시 속성과 정렬 -->
+      <div v-else-if="tab === 'graph'" role="tabpanel">
+        <h3>표시</h3>
       <div class="field">
         <span class="label">전체 배경 색</span>
         <ColorPicker :model-value="style.background" default-label="기본 배경" @update:model-value="(v) => set({ background: v })" />
@@ -112,10 +144,24 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           @change="set({ showBoardName: ($event.target as HTMLInputElement).checked })"
         />
       </label>
-      </section>
 
-      <section>
-        <h3>노드</h3>
+        <section>
+          <h3>정렬</h3>
+          <AlignControls :data="data" @aligned="emit('aligned')" />
+        </section>
+
+        <button
+          type="button"
+          class="btn small reset"
+          title="배경 색과 보드 이름 표시를 되돌립니다"
+          @click="set({ background: undefined, showBoardName: undefined })"
+        >
+          표시 기본값으로
+        </button>
+      </div>
+
+      <!-- 노드: 크기, 진행률, 라벨, 완료 표시 -->
+      <div v-else-if="tab === 'node'" role="tabpanel">
         <div class="field">
           <label for="g-node">크기 {{ num('nodeSize') }}</label>
           <input
@@ -138,15 +184,14 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             @change="set({ showProgress: ($event.target as HTMLInputElement).checked })"
           />
         </label>
-      </section>
 
-      <section>
-        <h3>노드 라벨</h3>
-        <LabelGroupsEditor :data="data" />
-      </section>
+        <section>
+          <h3>노드 라벨</h3>
+          <LabelGroupsEditor :data="data" />
+        </section>
 
-      <section>
-        <h3>완료된 노드</h3>
+        <section>
+          <h3>완료된 노드</h3>
         <div class="field">
           <span class="label">색</span>
           <ColorPicker :model-value="style.doneColor" default-label="기본 초록" @update:model-value="(v) => set({ doneColor: v })" />
@@ -170,10 +215,20 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             </button>
           </div>
         </div>
-      </section>
+        </section>
 
-      <section>
-        <h3>연결 화살표</h3>
+        <button
+          type="button"
+          class="btn small reset"
+          title="노드 크기, 진행률 표시, 완료 색·표시를 되돌립니다. 노드 라벨은 그대로 둡니다"
+          @click="set({ nodeSize: undefined, showProgress: undefined, doneColor: undefined, doneMark: undefined })"
+        >
+          노드 기본값으로
+        </button>
+      </div>
+
+      <!-- 라인: 연결 화살표 -->
+      <div v-else role="tabpanel">
         <div class="field">
           <span class="label">색</span>
           <ColorPicker :model-value="style.edgeColor" default-label="기본 회색" @update:model-value="(v) => set({ edgeColor: v })" />
@@ -224,30 +279,17 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             />
           </div>
         </div>
-      </section>
 
-      <div class="actions">
         <button
           type="button"
-          class="btn"
-          title="그래프의 색·크기·표시만 되돌립니다. 정렬(방향·간격), 노드 라벨, 보기 모드 테마는 그대로 둡니다"
-          @click="
-            set({
-              background: undefined,
-              showBoardName: undefined,
-              nodeSize: undefined,
-              doneColor: undefined,
-              doneMark: undefined,
-              showProgress: undefined,
-              edgeColor: undefined,
-              edgeHead: undefined,
-              edgeHeadSize: undefined,
-              edgeWidth: undefined,
-            })
-          "
+          class="btn small reset"
+          @click="set({ edgeColor: undefined, edgeHead: undefined, edgeHeadSize: undefined, edgeWidth: undefined })"
         >
-          그래프 기본값으로
+          라인 기본값으로
         </button>
+      </div>
+
+      <div class="actions">
         <span style="flex: 1" />
         <button type="button" class="btn primary" @click="emit('close')">닫기</button>
       </div>
@@ -274,10 +316,35 @@ section {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
-section.first {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
+/* 범위별 탭 */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.tabs button {
+  padding: 6px 0;
+  border: 0;
+  background: var(--surface);
+  cursor: pointer;
+}
+.tabs button + button {
+  border-left: 1px solid var(--border);
+}
+.tabs button.on {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.intro {
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+.reset {
+  margin-top: 16px;
 }
 h3 {
   margin: 0 0 8px;

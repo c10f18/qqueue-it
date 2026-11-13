@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import AlignDialog from '../components/AlignDialog.vue'
 import BulkProgressDialog from '../components/BulkProgressDialog.vue'
 import GraphSettingsDialog from '../components/GraphSettingsDialog.vue'
 import ListView from '../components/ListView.vue'
@@ -29,7 +28,7 @@ const missing = ref(false)
 const bulkOpen = ref(false)
 const renaming = ref(false)
 // 오른쪽에 붙는 패널은 한 번에 하나만 연다. 패널 밖을 누르면 닫힌다.
-const panel = ref<'settings' | 'align' | null>(null)
+const panel = ref<'settings' | null>(null)
 // 정렬을 누를 때마다 올려서 그래프가 화면을 다시 맞추게 한다.
 const fitTick = ref(0)
 const viewTab = ref<'list' | 'graph'>('list')
@@ -178,7 +177,7 @@ function onDocDown(e: PointerEvent) {
   if (target.closest('.side-panel .dialog, [data-panel-toggle]')) return
   panel.value = null
 }
-function togglePanel(name: 'settings' | 'align') {
+function togglePanel(name: 'settings') {
   panel.value = panel.value === name ? null : name
 }
 
@@ -358,8 +357,6 @@ onUnmounted(() => {
       <template v-if="mode === 'edit'">
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
-        <button class="btn" data-panel-toggle title="보기 모드 테마·노드·라벨·완료 표시·화살표·배경" @click="togglePanel('settings')">⚙ 설정</button>
-        <button class="btn" data-panel-toggle title="노드를 방향에 맞춰 정렬하고 간격을 조정" @click="togglePanel('align')">정렬</button>
 
         <div class="layout-wrap">
           <button
@@ -408,6 +405,7 @@ onUnmounted(() => {
             </template>
           </div>
         </div>
+        <button class="btn" data-panel-toggle title="테마·그래프(표시·정렬)·노드·라인 설정" @click="togglePanel('settings')">⚙ 설정</button>
 
         <span v-if="inactiveLanes.length" class="inactive">
           <span class="muted">숨긴 카테고리</span>
@@ -467,8 +465,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <GraphSettingsDialog v-if="panel === 'settings'" :data="data" @close="panel = null" />
-    <AlignDialog v-else-if="panel === 'align'" :data="data" @aligned="fitTick++" @close="panel = null" />
+    <GraphSettingsDialog v-if="panel === 'settings'" :data="data" @aligned="fitTick++" @close="panel = null" />
 
     <BulkProgressDialog v-if="bulkOpen && mode === 'view'" :data="data" @apply="applyBulk" @reset-all="resetAll" @close="bulkOpen = false" />
 
