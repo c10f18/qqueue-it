@@ -68,7 +68,7 @@ watch(
           <span class="muted">{{ f.label }}</span>
         </button>
       </div>
-      <span v-if="category !== '기본'" class="muted note">Google Fonts의 무료 글꼴입니다. 고르면 인터넷에서 받아 옵니다.</span>
+      <span v-if="category !== '기본'" class="muted note">Google Fonts의 무료 글꼴입니다.</span>
     </div>
 
     <div class="field">
