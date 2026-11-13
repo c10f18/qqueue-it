@@ -17,7 +17,7 @@ import {
   NAME_LABEL_GROUP_ID,
 } from '../domain'
 import { laneColorOf } from '../composables/laneColor'
-import { LABEL_FONTS, labelFontCss } from '../graph/labelFont'
+import { ensureFont, fontOption, labelFontCss } from '../graph/labelFont'
 import { place } from '../graph/layout'
 import { DEFAULT_VIEW, clampPitch, fitZoom, makeProjector, type Point3, type View } from '../graph/projection'
 
@@ -546,7 +546,7 @@ function toSvg(): string {
         // 글자 기준선: 아래쪽 라벨은 위를, 위쪽 라벨은 아래를 노드에 붙인다.
         const dyBase = dir.y > SIDE ? px * 0.85 : dir.y < -SIDE ? -px * 0.2 : px * 0.35
         const styleAttrs = [
-          `font-family="${xml(LABEL_FONTS[g.font ?? 'sans'].family)}"`,
+          `font-family="${xml(fontOption(g.font).family)}"`,
           `font-size="${px}"`,
           g.bold ? 'font-weight="700"' : '',
           g.italic ? 'font-style="italic"' : '',
@@ -642,13 +642,32 @@ function zoomBy(factor: number) {
 
 const selectedNode = computed(() => layout.value.nodes.find((n) => n.id === selectedId.value))
 
+// 라벨에 쓰는 Google 글꼴을 받아 오고, 글꼴이 도착하면 다시 그린다 (캔버스는 스스로 다시 그리지 않는다).
+watch(
+  () => {
+    const groups = labelGroupsOf(props.data).filter((g) => fontOption(g.font).google)
+    // only the characters actually shown, so the browser fetches just the needed font slices
+    const chars = groups.length ? [...new Set(props.data.nodes.flatMap((n) => [n.name, ...Object.values(n.labels ?? {})]).join('') + '0123456789%')].join('') : ''
+    return JSON.stringify([groups.map((g) => labelFontCss(g)), chars])
+  },
+  (key) => {
+    const [fonts, chars] = JSON.parse(key) as [string[], string]
+    void Promise.all(labelGroupsOf(props.data).map((g) => ensureFont(g.font))).then(() => {
+      for (const font of fonts) void document.fonts?.load(font, chars).then(schedule, () => {})
+    })
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
+  document.fonts?.addEventListener('loadingdone', schedule)
   ro = new ResizeObserver(resize)
   if (host.value) ro.observe(host.value)
   canvas.value?.addEventListener('wheel', onWheel, { passive: false })
   resize()
 })
 onUnmounted(() => {
+  document.fonts?.removeEventListener('loadingdone', schedule)
   ro?.disconnect()
   canvas.value?.removeEventListener('wheel', onWheel)
   cancelAnimationFrame(raf)

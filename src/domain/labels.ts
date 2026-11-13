@@ -2,7 +2,7 @@
 // 첫 그룹은 항상 작업 이름이고 지울 수 없다. 추가한 그룹은 노드마다 글자를 따로 입력한다.
 
 import { DomainError, draft, findNode, normalizeColor, uid } from './core'
-import { LABEL_FONT_IDS, LABEL_SIZE, MAX_LABEL_GROUPS, NAME_LABEL_GROUP_ID } from './types'
+import { LABEL_SIZE, MAX_LABEL_GROUPS, NAME_LABEL_GROUP_ID } from './types'
 import type { BoardData, GraphDirection, LabelFont, LabelGroup, OpResult } from './types'
 
 /** 새 그룹을 놓을 방향을 고르는 순서 */
@@ -98,7 +98,8 @@ export function updateLabelGroup(data: BoardData, groupId: string, patch: LabelG
   if ('font' in patch) {
     if (patch.font === undefined || patch.font === 'sans') delete group.font
     else {
-      if (!LABEL_FONT_IDS.includes(patch.font)) throw new DomainError('invalid-argument', '잘못된 글꼴입니다.')
+      // 글꼴 이름으로 쓸 수 있는 글자만 받는다 (모르는 이름은 화면에서 기본 글꼴로 보인다).
+      if (!/^[A-Za-z0-9][A-Za-z0-9 ]{0,49}$/.test(patch.font)) throw new DomainError('invalid-argument', '잘못된 글꼴입니다.')
       group.font = patch.font
     }
   }

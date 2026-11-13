@@ -1,13 +1,22 @@
 <script setup lang="ts">
-import { LABEL_SIZE, type LabelFont, type LabelGroup, type LabelGroupPatch } from '../domain'
-import { LABEL_FONTS, labelFontCss } from '../graph/labelFont'
+import { computed, ref, watch } from 'vue'
+import { LABEL_SIZE, type LabelGroup, type LabelGroupPatch } from '../domain'
+import { FONT_CATEGORIES, FONT_OPTIONS, ensureFont, fontOption, labelFontCss, type FontCategory } from '../graph/labelFont'
 import ColorPicker from './ColorPicker.vue'
 
 // 라벨 그룹 하나의 글꼴 디자인 팝업: 글꼴, 굵게·기울임·밑줄, 크기, 색. 바꾸는 즉시 그래프에 반영된다.
-defineProps<{ group: LabelGroup }>()
+const props = defineProps<{ group: LabelGroup }>()
 const emit = defineEmits<{ change: [patch: LabelGroupPatch]; close: [] }>()
 
-const FONT_IDS = Object.keys(LABEL_FONTS) as LabelFont[]
+const current = computed(() => fontOption(props.group.font))
+// 분류를 고르면 그 분류의 글꼴만 보여 주고, 그때 그 글꼴들을 받아 와 각자의 모양으로 이름을 보여 준다.
+const category = ref<FontCategory>(current.value.category)
+const fonts = computed(() => FONT_OPTIONS.filter((f) => f.category === category.value))
+watch(fonts, (list) => list.forEach((f) => ensureFont(f.id)), { immediate: true })
+watch(
+  () => props.group.id,
+  () => (category.value = current.value.category),
+)
 </script>
 
 <template>
@@ -30,22 +39,36 @@ const FONT_IDS = Object.keys(LABEL_FONTS) as LabelFont[]
     </div>
 
     <div class="field">
-      <span class="label">글꼴</span>
-      <div class="slots" role="radiogroup" aria-label="글꼴">
+      <span class="label">글꼴 — {{ current.label }}</span>
+      <div class="cats" role="tablist" aria-label="글꼴 분류">
         <button
-          v-for="id in FONT_IDS"
-          :key="id"
+          v-for="c in FONT_CATEGORIES"
+          :key="c"
           type="button"
-          role="radio"
-          class="slot font"
-          :class="{ on: (group.font ?? 'sans') === id }"
-          :aria-checked="(group.font ?? 'sans') === id"
-          :style="{ fontFamily: LABEL_FONTS[id].family }"
-          @click="emit('change', { font: id })"
+          role="tab"
+          :class="{ on: category === c }"
+          :aria-selected="category === c"
+          @click="category = c"
         >
-          {{ LABEL_FONTS[id].label }}
+          {{ c }}
         </button>
       </div>
+      <div class="font-list" role="radiogroup" aria-label="글꼴">
+        <button
+          v-for="f in fonts"
+          :key="f.id"
+          type="button"
+          role="radio"
+          :class="{ on: current.id === f.id }"
+          :aria-checked="current.id === f.id"
+          :aria-label="f.label"
+          @click="emit('change', { font: f.id })"
+        >
+          <span class="sample" :style="{ fontFamily: f.family }">{{ f.category === '영문' ? 'Abc 123' : '가나다 Abc' }}</span>
+          <span class="muted">{{ f.label }}</span>
+        </button>
+      </div>
+      <span v-if="category !== '기본'" class="muted note">Google Fonts의 무료 글꼴입니다. 고르면 인터넷에서 받아 옵니다.</span>
     </div>
 
     <div class="field">
@@ -184,8 +207,61 @@ h3 {
   font-size: 15px;
   cursor: pointer;
 }
-.slot.font {
-  font-size: 13px;
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cats button {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  cursor: pointer;
+}
+.cats button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.font-list {
+  display: grid;
+  gap: 2px;
+  max-height: 190px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+}
+.font-list button {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.font-list button:hover {
+  background: var(--surface-2);
+}
+.font-list button.on {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+}
+.font-list .sample {
+  font-size: 17px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.font-list .muted,
+.note {
+  font-size: 11px;
 }
 .slot.on {
   outline: 2px solid var(--accent);

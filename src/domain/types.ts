@@ -80,8 +80,8 @@ export interface LabelGroup {
   italic?: boolean
   underline?: boolean
 }
-export type LabelFont = 'sans' | 'serif' | 'round' | 'mono'
-export const LABEL_FONT_IDS: LabelFont[] = ['sans', 'serif', 'round', 'mono']
+/** 글꼴 id: 기기 글꼴('sans' 등) 또는 Google 글꼴 이름. 목록은 화면 쪽(graph/labelFont.ts)에 있다. */
+export type LabelFont = string
 /** 8방향 → 각도(도, 0 = 위, 시계 방향) */
 export const DIRECTION_ANGLE: Record<GraphDirection, number> = {
   up: 0,

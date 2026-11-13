@@ -98,7 +98,9 @@ describe('노드 라벨 그룹', () => {
     expect(labelGroupsOf(d)[0]).toMatchObject({ font: 'serif', bold: true, italic: true, underline: true })
     d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: undefined, bold: false, italic: false, underline: false }).data
     expect(labelGroupsOf(d)[0]).toEqual({ id: NAME_LABEL_GROUP_ID, name: '이름', position: 'down' })
-    expect(() => updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: 'comic' as never })).toThrow(/글꼴/)
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: 'Nanum Pen Script' }).data
+    expect(labelGroupsOf(d)[0].font).toBe('Nanum Pen Script')
+    expect(() => updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: "x'; drop" })).toThrow(/글꼴/)
   })
 
   it('빈 글자를 넣으면 라벨이 지워진다', () => {
