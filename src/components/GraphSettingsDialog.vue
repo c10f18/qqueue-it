@@ -1,7 +1,7 @@
 <script lang="ts">
 import { ref } from 'vue'
 
-type SettingsTab = 'theme' | 'graph' | 'node' | 'line'
+type SettingsTab = 'theme' | 'graph' | 'node' | 'line' | 'layout'
 // 패널을 닫았다 열어도 마지막에 보던 탭에서 이어지도록 컴포넌트 밖에 둔다.
 const tab = ref<SettingsTab>('theme')
 </script>
@@ -21,6 +21,7 @@ import {
 } from '../domain'
 import { ATTR_KEYS, ATTR_LABELS, resolveAttrs, type AttrKey } from '../composables/useNodeDisplay'
 import { SKIN_MODULES } from './skins'
+import { DOCK_LAYOUTS, FULL_LAYOUTS, defaultLayout, type EditLayout } from '../composables/editLayout'
 import { useBoardStore } from '../stores/board'
 import AlignControls from './AlignControls.vue'
 import ColorPicker from './ColorPicker.vue'
@@ -28,15 +29,39 @@ import LabelGroupsEditor from './LabelGroupsEditor.vue'
 
 // 보드의 모든 표시 설정. 범위별로 탭을 나눈다: 테마 / 그래프(표시·정렬) / 노드 / 라인.
 // 바꾸는 즉시 반영되고 되돌리기(Ctrl+Z) 대상이다.
-const props = defineProps<{ data: BoardData }>()
-const emit = defineEmits<{ close: []; aligned: [] }>()
+// layout: 수정 화면의 배치(이 기기에만 기억되는 값이라 보드 데이터가 아니다).
+const props = defineProps<{ data: BoardData; layout: EditLayout }>()
+const emit = defineEmits<{ close: []; aligned: []; 'update:layout': [value: EditLayout] }>()
 
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'theme', label: '테마', hint: '보기 모드의 테마와 방식' },
   { id: 'graph', label: '그래프', hint: '그래프 표시 속성과 정렬' },
   { id: 'node', label: '노드', hint: '노드 크기·라벨·완료 표시' },
   { id: 'line', label: '라인', hint: '연결 화살표' },
+  { id: 'layout', label: '레이아웃', hint: '수정 화면의 그래프·카드 배치' },
 ]
+const LAYOUT_GROUPS = [
+  { title: '그래프 위치', items: DOCK_LAYOUTS },
+  { title: '한쪽만 보기', items: FULL_LAYOUTS },
+]
+
+// 탭마다 왼쪽 아래에 놓는 "기본값으로": 지금 탭의 내용만 되돌린다.
+const RESET_HINT: Record<SettingsTab, string> = {
+  theme: '테마, 방식, 표시 속성을 되돌립니다',
+  graph: '배경 색, 보드 이름 표시, 간격을 되돌립니다. 정렬 방향은 그대로 둡니다',
+  node: '노드 크기, 진행률 표시, 완료 색·표시를 되돌립니다. 노드 라벨은 그대로 둡니다',
+  line: '연결 화살표의 색, 끝 모양, 끝 크기, 선 두께를 되돌립니다',
+  layout: '화면 크기에 맞는 기본 배치로 되돌립니다',
+}
+function resetTab() {
+  if (tab.value === 'theme') setList({ skin: undefined, flat: undefined, attrs: undefined })
+  else if (tab.value === 'graph') {
+    set({ background: undefined, showBoardName: undefined, slotGap: undefined, laneGap: undefined })
+    emit('aligned')
+  } else if (tab.value === 'node') set({ nodeSize: undefined, showProgress: undefined, doneColor: undefined, doneMark: undefined })
+  else if (tab.value === 'line') set({ edgeColor: undefined, edgeHead: undefined, edgeHeadSize: undefined, edgeWidth: undefined })
+  else emit('update:layout', defaultLayout())
+}
 const store = useBoardStore()
 
 const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
@@ -150,14 +175,6 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           <AlignControls :data="data" @aligned="emit('aligned')" />
         </section>
 
-        <button
-          type="button"
-          class="btn small reset"
-          title="배경 색과 보드 이름 표시를 되돌립니다"
-          @click="set({ background: undefined, showBoardName: undefined })"
-        >
-          표시 기본값으로
-        </button>
       </div>
 
       <!-- 노드: 크기, 진행률, 라벨, 완료 표시 -->
@@ -217,18 +234,10 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
         </div>
         </section>
 
-        <button
-          type="button"
-          class="btn small reset"
-          title="노드 크기, 진행률 표시, 완료 색·표시를 되돌립니다. 노드 라벨은 그대로 둡니다"
-          @click="set({ nodeSize: undefined, showProgress: undefined, doneColor: undefined, doneMark: undefined })"
-        >
-          노드 기본값으로
-        </button>
       </div>
 
       <!-- 라인: 연결 화살표 -->
-      <div v-else role="tabpanel">
+      <div v-else-if="tab === 'line'" role="tabpanel">
         <div class="field">
           <span class="label">색</span>
           <ColorPicker :model-value="style.edgeColor" default-label="기본 회색" @update:model-value="(v) => set({ edgeColor: v })" />
@@ -280,16 +289,39 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           </div>
         </div>
 
-        <button
-          type="button"
-          class="btn small reset"
-          @click="set({ edgeColor: undefined, edgeHead: undefined, edgeHeadSize: undefined, edgeWidth: undefined })"
-        >
-          라인 기본값으로
-        </button>
+      </div>
+
+      <!-- 레이아웃: 수정 화면에서 그래프와 카드를 놓는 방식 -->
+      <div v-else role="tabpanel">
+        <p class="muted intro">수정 화면에서 그래프와 카드를 어떻게 놓을지 고릅니다. 이 기기에 기억됩니다.</p>
+        <div v-for="group in LAYOUT_GROUPS" :key="group.title" class="field">
+          <span class="label">{{ group.title }}</span>
+          <div class="slots" role="radiogroup" :aria-label="group.title">
+            <button
+              v-for="l in group.items"
+              :key="l.value"
+              type="button"
+              role="radio"
+              class="slot lay-slot"
+              :class="{ on: layout === l.value }"
+              :aria-checked="layout === l.value"
+              :title="l.label"
+              :aria-label="l.label"
+              @click="emit('update:layout', l.value)"
+            >
+              <svg class="lay" viewBox="0 0 18 14" aria-hidden="true">
+                <rect x="1" y="1" width="16" height="12" rx="2.5" />
+                <rect v-if="l.fill" class="fill" v-bind="{ x: l.fill.x, y: l.fill.y, width: l.fill.w, height: l.fill.h }" rx="1" />
+                <path v-else class="lines" d="M4.5 4.5h9M4.5 7h9M4.5 9.5h9" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p class="muted intro">그래프와 카드를 같이 볼 때는 둘 사이의 경계선을 끌어 크기를 바꿀 수 있습니다.</p>
       </div>
 
       <div class="actions">
+        <button type="button" class="btn" :title="RESET_HINT[tab]" @click="resetTab">기본값으로</button>
         <span style="flex: 1" />
         <button type="button" class="btn primary" @click="emit('close')">닫기</button>
       </div>
@@ -319,14 +351,16 @@ section {
 /* 범위별 탭 */
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, auto);
   margin-bottom: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
 .tabs button {
-  padding: 6px 0;
+  padding: 6px 4px;
+  font-size: 13px;
+  white-space: nowrap;
   border: 0;
   background: var(--surface);
   cursor: pointer;
@@ -343,8 +377,28 @@ section {
   margin: 0 0 12px;
   font-size: 12px;
 }
-.reset {
-  margin-top: 16px;
+/* 레이아웃 아이콘: 테두리 안에 그래프가 붙는 쪽을 칠해 보여 준다 */
+.lay-slot {
+  width: 44px;
+  color: var(--text);
+}
+.lay-slot.on {
+  color: var(--accent);
+}
+.lay {
+  width: 24px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.lay .fill {
+  fill: currentColor;
+  stroke: none;
+}
+.lay .lines {
+  stroke-width: 1.2;
+  stroke-linecap: round;
 }
 h3 {
   margin: 0 0 8px;

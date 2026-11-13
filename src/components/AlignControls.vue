@@ -36,10 +36,6 @@ function align(dir: GraphDirection) {
 function setGap(key: 'slotGap' | 'laneGap', e: Event) {
   store.apply((d) => setGraphStyle(d, { [key]: Number((e.target as HTMLInputElement).value) }))
 }
-function resetGaps() {
-  store.apply((d) => setGraphStyle(d, { slotGap: undefined, laneGap: undefined }))
-  emit('aligned')
-}
 </script>
 
 <template>
@@ -90,7 +86,6 @@ function resetGaps() {
         @change="setGap('laneGap', $event)"
       />
     </div>
-    <button type="button" class="btn small" @click="resetGaps">간격 기본값</button>
   </div>
 </template>
 

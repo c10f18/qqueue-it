@@ -5,6 +5,7 @@ import GraphSettingsDialog from '../components/GraphSettingsDialog.vue'
 import ListView from '../components/ListView.vue'
 import QueueGraph from '../components/QueueGraph.vue'
 import Timetable from '../components/Timetable.vue'
+import { DOCK_LAYOUTS, LAYOUTS, defaultLayout, type EditLayout } from '../composables/editLayout'
 import { navigate } from '../composables/useRoute'
 import {
   DomainError,
@@ -171,7 +172,6 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 // ── 패널 밖을 누르면 닫는다 ────────────────────────────────
 function onDocDown(e: PointerEvent) {
   const target = e.target as HTMLElement
-  if (layoutOpen.value && !target.closest('.layout-wrap')) layoutOpen.value = false
   if (menuOpen.value && !target.closest('.menu-wrap')) menuOpen.value = false
   if (!panel.value) return
   if (target.closest('.side-panel .dialog, [data-panel-toggle]')) return
@@ -182,31 +182,7 @@ function togglePanel(name: 'settings') {
 }
 
 // ── 수정 모드 레이아웃: 그래프와 카드(타임테이블)를 어떻게 놓을지 ──
-// 그래프를 카드 영역의 어느 쪽에 붙일지(도크 위치) 또는 한쪽만 볼지를 고른다.
-type EditLayout = 'left' | 'right' | 'top' | 'bottom' | 'cards' | 'graph'
-interface LayoutOption {
-  value: EditLayout
-  label: string
-  /** 아이콘(18×14) 안에서 그래프가 차지하는 칸 */
-  fill?: { x: number; y: number; w: number; h: number }
-}
-const DOCK_LAYOUTS: LayoutOption[] = [
-  { value: 'left', label: '그래프를 왼쪽에', fill: { x: 3, y: 3, w: 5, h: 8 } },
-  { value: 'right', label: '그래프를 오른쪽에', fill: { x: 10, y: 3, w: 5, h: 8 } },
-  { value: 'top', label: '그래프를 위에', fill: { x: 3, y: 3, w: 12, h: 3.5 } },
-  { value: 'bottom', label: '그래프를 아래에', fill: { x: 3, y: 7.5, w: 12, h: 3.5 } },
-]
-const FULL_LAYOUTS: LayoutOption[] = [
-  { value: 'cards', label: '카드만' },
-  { value: 'graph', label: '그래프만', fill: { x: 3, y: 3, w: 12, h: 8 } },
-]
-const LAYOUTS = [...DOCK_LAYOUTS, ...FULL_LAYOUTS]
-const layoutOpen = ref(false)
 const PREF_KEY = 'qqueue.editLayout'
-function defaultLayout(): EditLayout {
-  if (!window.matchMedia('(min-width: 640px)').matches) return 'cards'
-  return window.matchMedia('(orientation: landscape)').matches ? 'top' : 'left'
-}
 const layout = ref<EditLayout>(defaultLayout())
 /** 나눠 보는 레이아웃에서 그래프 영역이 차지하는 비율 */
 const ratio = ref(0.4)
@@ -228,11 +204,6 @@ watch([layout, ratio], () => {
 })
 const split = computed(() => DOCK_LAYOUTS.some((l) => l.value === layout.value))
 const vertical = computed(() => layout.value === 'top' || layout.value === 'bottom')
-const currentLayout = computed(() => LAYOUTS.find((l) => l.value === layout.value)!)
-function pickLayout(value: EditLayout) {
-  layout.value = value
-  layoutOpen.value = false
-}
 
 const body = ref<HTMLElement | null>(null)
 const resizing = ref(false)
@@ -358,54 +329,7 @@ onUnmounted(() => {
         <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
         <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
 
-        <div class="layout-wrap">
-          <button
-            class="btn layout-btn"
-            title="레이아웃 선택"
-            aria-label="레이아웃 선택"
-            aria-haspopup="true"
-            :aria-expanded="layoutOpen"
-            @click="((panel = null), (layoutOpen = !layoutOpen))"
-          >
-            <svg class="lay" viewBox="0 0 18 14" aria-hidden="true">
-              <rect x="1" y="1" width="16" height="12" rx="2.5" />
-              <rect v-if="currentLayout.fill" class="fill" v-bind="{ x: currentLayout.fill.x, y: currentLayout.fill.y, width: currentLayout.fill.w, height: currentLayout.fill.h }" rx="1" />
-              <path v-else class="lines" d="M4.5 4.5h9M4.5 7h9M4.5 9.5h9" />
-            </svg>
-          </button>
-
-          <div v-if="layoutOpen" class="layout-pop" role="dialog" aria-label="레이아웃 선택">
-            <template
-              v-for="group in [
-                { title: '그래프 위치', items: DOCK_LAYOUTS },
-                { title: '한쪽만 보기', items: FULL_LAYOUTS },
-              ]"
-              :key="group.title"
-            >
-              <span class="pop-title">{{ group.title }}</span>
-              <div class="pop-row" role="radiogroup" :aria-label="group.title">
-                <button
-                  v-for="l in group.items"
-                  :key="l.value"
-                  type="button"
-                  role="radio"
-                  :class="{ on: layout === l.value }"
-                  :aria-checked="layout === l.value"
-                  :title="l.label"
-                  :aria-label="l.label"
-                  @click="pickLayout(l.value)"
-                >
-                  <svg class="lay" viewBox="0 0 18 14" aria-hidden="true">
-                    <rect x="1" y="1" width="16" height="12" rx="2.5" />
-                    <rect v-if="l.fill" class="fill" v-bind="{ x: l.fill.x, y: l.fill.y, width: l.fill.w, height: l.fill.h }" rx="1" />
-                    <path v-else class="lines" d="M4.5 4.5h9M4.5 7h9M4.5 9.5h9" />
-                  </svg>
-                </button>
-              </div>
-            </template>
-          </div>
-        </div>
-        <button class="btn" data-panel-toggle title="테마·그래프(표시·정렬)·노드·라인 설정" @click="togglePanel('settings')">⚙ 설정</button>
+        <button class="btn" data-panel-toggle title="테마·그래프(표시·정렬)·노드·라인·레이아웃 설정" @click="togglePanel('settings')">⚙ 설정</button>
 
         <span v-if="inactiveLanes.length" class="inactive">
           <span class="muted">숨긴 카테고리</span>
@@ -465,7 +389,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <GraphSettingsDialog v-if="panel === 'settings'" :data="data" @aligned="fitTick++" @close="panel = null" />
+    <GraphSettingsDialog v-if="panel === 'settings'" v-model:layout="layout" :data="data" @aligned="fitTick++" @close="panel = null" />
 
     <BulkProgressDialog v-if="bulkOpen && mode === 'view'" :data="data" @apply="applyBulk" @reset-all="resetAll" @close="bulkOpen = false" />
 
@@ -669,74 +593,6 @@ onUnmounted(() => {
 }
 .resizing {
   user-select: none;
-}
-/* 레이아웃 선택: 창 도크 위치를 고르는 메뉴처럼, 테두리 안에 그래프가 붙는 쪽을 칠한 아이콘으로 보여 준다 */
-.layout-wrap {
-  position: relative;
-}
-.layout-btn {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-.lay {
-  width: 22px;
-  height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-}
-.lay .fill {
-  fill: currentColor;
-  stroke: none;
-}
-.lay .lines {
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-.layout-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 30;
-  display: grid;
-  gap: 6px;
-  min-width: 190px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.pop-title {
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.pop-title:not(:first-child) {
-  margin-top: 6px;
-}
-.pop-row {
-  display: flex;
-  gap: 4px;
-}
-.pop-row button {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-}
-.pop-row button:hover {
-  background: var(--surface-2);
-}
-.pop-row button.on {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 .view-layout {
   display: flex;
