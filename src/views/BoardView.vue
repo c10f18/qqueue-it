@@ -12,7 +12,6 @@ import {
   bulkProgress,
   exportBoard,
   importBoardData,
-  renameBoard,
   resetAllProgress,
   sortedLanes,
   toggleLaneActive,
@@ -134,7 +133,8 @@ function startRename() {
 function commitRename() {
   if (!renaming.value) return
   renaming.value = false
-  if (nameDraft.value.trim()) store.apply((d) => renameBoard(d, nameDraft.value))
+  // 제목은 저장 버튼과 상관없이 바로 저장된다.
+  if (nameDraft.value.trim()) store.renameCurrent(nameDraft.value)
 }
 
 // ── 저장: 수정 모드에서는 "저장"을 눌러야 저장된다 ─────────────
@@ -165,6 +165,17 @@ async function leave(keep: boolean) {
   else await store.discard()
   navigate({ name: 'list' })
 }
+// 수정 모드에서는 저장 안 된 변경을 1분마다 자동으로 저장한다.
+const AUTOSAVE_MS = 60_000
+const autoSavedAt = ref('')
+let autosaveTimer = 0
+async function autosaveTick() {
+  if (props.mode !== 'edit' || !store.dirty) return
+  await store.save()
+  const d = new Date()
+  autoSavedAt.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 function onBeforeUnload(e: BeforeUnloadEvent) {
   if (store.dirty) e.preventDefault()
 }
@@ -242,10 +253,12 @@ function resizeKey(e: KeyboardEvent) {
 onMounted(() => {
   document.addEventListener('pointerdown', onDocDown, true)
   window.addEventListener('beforeunload', onBeforeUnload)
+  autosaveTimer = window.setInterval(() => void autosaveTick(), AUTOSAVE_MS)
 })
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocDown, true)
   window.removeEventListener('beforeunload', onBeforeUnload)
+  clearInterval(autosaveTimer)
   // 다른 화면으로 넘어가면 밀린 변경을 저장하고 자동 저장으로 돌아간다.
   store.setAutosave(true)
 })
@@ -345,7 +358,8 @@ onUnmounted(() => {
         </span>
 
         <span class="spacer" />
-        <span v-if="store.dirty" class="unsaved" role="status">● 저장 안 됨</span>
+        <span v-if="store.dirty" class="unsaved" role="status" title="1분마다 자동으로 저장됩니다">● 저장 안 됨</span>
+        <span v-else-if="autoSavedAt" class="muted autosaved" role="status">자동 저장 {{ autoSavedAt }}</span>
         <button class="btn" :disabled="!store.dirty" @click="store.save()">저장</button>
         <button class="btn primary" @click="saveAndClose">저장 및 닫기</button>
       </template>
@@ -396,7 +410,7 @@ onUnmounted(() => {
     <div v-if="leaveOpen" class="overlay" @pointerdown.self="leaveOpen = false">
       <div class="dialog" role="alertdialog" aria-label="저장하지 않은 변경">
         <h2>저장하지 않은 변경이 있습니다</h2>
-        <p class="muted">저장하지 않고 나가면 마지막으로 저장한 뒤의 변경이 사라집니다.</p>
+        <p class="muted">저장하지 않고 나가면 마지막으로 저장(자동 저장 포함)한 뒤의 변경이 사라집니다.</p>
         <div class="actions">
           <button class="btn" @click="leaveOpen = false">취소</button>
           <span style="flex: 1" />
@@ -505,6 +519,9 @@ onUnmounted(() => {
 }
 .spacer {
   flex: 1;
+}
+.autosaved {
+  font-size: 12px;
 }
 .unsaved {
   color: var(--danger);

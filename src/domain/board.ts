@@ -1,12 +1,13 @@
 import { DomainError, draft, normalizeColor, uid } from './core'
-import { DEFAULT_LANE_NAME, GRAPH_RANGES } from './types'
+import { DEFAULT_LANE_NAME, DEFAULT_NODE_NAME, GRAPH_RANGES } from './types'
 import type { BoardData, GraphNumberKey, GraphStyle, ListStyle, OpResult } from './types'
 
-/** 새 보드: 기본 카테고리 "Default" 1개 + 최초 슬롯 1개 (FR-10, FR-62) */
+/** 새 보드: 기본 카테고리 "Default" 1개 + 슬롯 1개 + 그 칸에 빈 작업 1개 (FR-10, FR-62) */
 export function createBoardData(name: string): BoardData {
   const now = Date.now()
   const boardId = uid()
   const slot = { id: uid(), boardId }
+  const lane = { id: uid(), boardId, name: DEFAULT_LANE_NAME, order: 0, active: true }
   return {
     board: {
       id: boardId,
@@ -16,9 +17,23 @@ export function createBoardData(name: string): BoardData {
       createdAt: now,
       updatedAt: now,
     },
-    lanes: [{ id: uid(), boardId, name: DEFAULT_LANE_NAME, order: 0, active: true }],
+    lanes: [lane],
     slots: [slot],
-    nodes: [],
+    nodes: [
+      {
+        id: uid(),
+        boardId,
+        slotId: slot.id,
+        laneId: lane.id,
+        name: DEFAULT_NODE_NAME,
+        tags: [],
+        progress: 0,
+        count: 0,
+        visible: true,
+        linkFilter: { touched: false, excludedLaneIds: [] },
+        createdAt: now,
+      },
+    ],
   }
 }
 

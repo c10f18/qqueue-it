@@ -17,6 +17,8 @@ export function build(laneNames: string[], rows: (string | null)[][]): BoardData
     order,
     active: true,
   }))
+  // 새 보드에 기본으로 들어 있는 작업은 빼고 격자대로 다시 채운다.
+  data.nodes = []
   data.slots = []
   data.board.slotOrder = []
   rows.forEach((row, i) => {

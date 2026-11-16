@@ -8,6 +8,7 @@ import {
   type BackupFile,
   createBoardData,
   createBoardFromTemplate,
+  renameBoard as renameBoardOp,
   createTemplateFromBoard,
   DomainError,
   type BoardData,
@@ -123,6 +124,27 @@ export const useBoardStore = defineStore('board', () => {
     await refreshBoards()
     await refreshTemplates()
     return { boards: newBoards.length, templates: newTemplates.length }
+  }
+
+  /**
+   * 보드 이름 변경: 수정 모드에서도 "저장"을 기다리지 않고 이름만 바로 저장한다.
+   * 다른 저장 안 된 변경은 그대로 저장 안 된 상태로 남는다.
+   */
+  function renameCurrent(name: string) {
+    const before = current.value
+    if (!before) return
+    const wasDirty = dirty.value
+    apply((d) => renameBoardOp(d, name))
+    const after = current.value
+    if (!after || after === before || autosave.value) return
+    saveQueue = saveQueue
+      .then(() => repo.renameBoard(after.board.id, after.board.name))
+      .catch((e) => {
+        console.error(e)
+        error.value = '저장에 실패했습니다. 브라우저 저장소를 확인해 주세요.'
+      })
+    // 이름만 바꾼 것이면 저장할 것이 남지 않는다.
+    if (!wasDirty) dirty.value = false
   }
 
   /** 저장하지 않은 변경을 버리고 마지막으로 저장한 상태로 되돌린다. 되돌리기 기록도 비운다. */
@@ -346,6 +368,7 @@ export const useBoardStore = defineStore('board', () => {
     dirty,
     exportData,
     importBoard,
+    renameCurrent,
     backupAll,
     restoreBackup,
     camera,

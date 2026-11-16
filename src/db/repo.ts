@@ -13,6 +13,8 @@ export interface BoardRepo {
   listBoards(): Promise<BoardSummary[]>
   loadBoard(boardId: string): Promise<BoardData | undefined>
   saveBoard(data: BoardData): Promise<void>
+  /** 보드 이름만 바꿔 저장한다 (나머지 내용은 건드리지 않는다). */
+  renameBoard(boardId: string, name: string): Promise<void>
   deleteBoard(boardId: string): Promise<void>
   listTemplates(): Promise<Template[]>
   saveTemplate(template: Template): Promise<void>
@@ -58,6 +60,10 @@ export function createDexieRepo(db: QQueueDB = new QQueueDB()): BoardRepo {
         await db.slots.bulkAdd(structuredClone(data.slots))
         await db.nodes.bulkAdd(structuredClone(data.nodes))
       })
+    },
+
+    async renameBoard(boardId, name) {
+      await db.boards.update(boardId, { name, updatedAt: Date.now() })
     },
 
     async deleteBoard(boardId) {

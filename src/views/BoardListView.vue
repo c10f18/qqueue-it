@@ -205,6 +205,10 @@ function say(msg: string) {
   noticeTimer = window.setTimeout(() => (notice.value = ''), 3000)
 }
 
+/** 완료한 작업의 비율(%). 작업이 없으면 0 */
+function percent(b: { nodeCount: number; doneCount: number }) {
+  return b.nodeCount ? Math.round((b.doneCount / b.nodeCount) * 100) : 0
+}
 function fmt(ms: number) {
   const d = new Date(ms)
   const p = (n: number) => String(n).padStart(2, '0')
@@ -270,8 +274,9 @@ function fmt(ms: number) {
           <div class="search" :class="{ open: searchOpen }">
             <input
               ref="searchInput"
-              v-model="query"
+              :value="query"
               type="text"
+              @input="query = ($event.target as HTMLInputElement).value"
               placeholder="검색"
               aria-label="보드 검색"
               maxlength="60"
@@ -338,10 +343,10 @@ function fmt(ms: number) {
           <button class="board" type="button" @click="openBoard(b.id)">
             <strong>{{ b.name }}</strong>
             <span class="muted">
-              {{ b.nodeCount ? `작업 ${b.nodeCount}개 중 ${b.doneCount}개 완료` : '작업 없음' }}
+              {{ percent(b) }}%<template v-if="b.nodeCount"> · 작업 {{ b.nodeCount }}개 중 {{ b.doneCount }}개 완료</template>
             </span>
             <span class="muted dates">생성 {{ fmt(b.createdAt) }} · 수정 {{ fmt(b.updatedAt) }}</span>
-            <span v-if="b.nodeCount" class="bar"><span :style="{ width: (b.doneCount / b.nodeCount) * 100 + '%' }" /></span>
+            <span class="bar"><span :style="{ width: percent(b) + '%' }" /></span>
           </button>
 
           <div v-if="!selecting" class="more-wrap">
@@ -355,15 +360,15 @@ function fmt(ms: number) {
               ⋯
             </button>
             <div v-if="menuId === b.id" class="pop" role="menu">
-              <button role="menuitem" @click="navigate({ name: 'edit', boardId: b.id })">✏ 수정</button>
-              <button role="menuitem" @click="clone(b.id)">⧉ 복제</button>
+              <button role="menuitem" @click="navigate({ name: 'edit', boardId: b.id })"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 1.7a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L5.6 13.4l-3.7.8.8-3.7z" /><path d="M9.8 3.2l3 3" /></svg>수정</button>
+              <button role="menuitem" @click="clone(b.id)"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" /></svg>복제</button>
               <button
                 role="menuitem"
                 @click="((menuId = null), (dialog = { kind: 'template', boardId: b.id, name: `${b.name} 템플릿` }))"
               >
-                📄 템플릿 저장
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z" /><path d="M9 1.8V5.2h3.4M6 8.5h4.5M6 11h4.5" /></svg>템플릿 저장
               </button>
-              <button role="menuitem" class="danger" @click="askDeleteOne(b.id, b.name)">🗑 삭제</button>
+              <button role="menuitem" class="danger" @click="askDeleteOne(b.id, b.name)"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.8 4.2h10.4M6.3 4.2V2.6h3.4v1.6M4.2 4.2l.6 9.2h6.4l.6-9.2M6.7 6.8v4M9.3 6.8v4" /></svg>삭제</button>
             </div>
           </div>
         </li>
@@ -654,7 +659,9 @@ button.board:hover,
   background: var(--surface);
 }
 .pop button {
-  display: block;
+  display: flex;
+  gap: 8px;
+  align-items: center;
   width: 100%;
   padding: 7px 10px;
   border: 0;
@@ -662,6 +669,17 @@ button.board:hover,
   background: transparent;
   text-align: left;
   cursor: pointer;
+}
+/* 메뉴 아이콘: 모두 같은 크기·같은 칸에 놓아 글자가 한 줄로 맞게 한다 */
+.pop .ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .pop button:hover {
   background: var(--surface-2);
