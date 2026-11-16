@@ -342,10 +342,10 @@ function fmt(ms: number) {
           />
           <button class="board" type="button" @click="openBoard(b.id)">
             <strong>{{ b.name }}</strong>
-            <span class="muted">
-              {{ percent(b) }}%<template v-if="b.nodeCount"> · 작업 {{ b.nodeCount }}개 중 {{ b.doneCount }}개 완료</template>
+            <span class="meta">
+              <span class="muted">작업 {{ b.doneCount }}/{{ b.nodeCount }} 완료</span>
+              <span class="muted dates">생성 {{ fmt(b.createdAt) }} · 수정 {{ fmt(b.updatedAt) }}</span>
             </span>
-            <span class="muted dates">생성 {{ fmt(b.createdAt) }} · 수정 {{ fmt(b.updatedAt) }}</span>
             <span class="bar"><span :style="{ width: percent(b) + '%' }" /></span>
           </button>
 
@@ -529,6 +529,18 @@ function fmt(ms: number) {
 .dates {
   font-size: 12px;
 }
+/* 작업 수(왼쪽)와 날짜(오른쪽)를 한 줄에 */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.meta .dates {
+  margin-left: auto;
+  text-align: right;
+}
 .sort {
   display: inline-flex;
   border: 1px solid var(--border);
@@ -600,7 +612,7 @@ function fmt(ms: number) {
   flex: 1;
   min-width: 0;
   gap: 4px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);

@@ -4,7 +4,8 @@ import { MAX_TAGS, normalizeTags, type Lane, type NodePatch, type TaskNode } fro
 import { fileToThumbnail } from '../composables/imageFile'
 import ColorPicker from './ColorPicker.vue'
 
-const props = defineProps<{ node: TaskNode; lane: Lane | undefined }>()
+// percent: 보드가 진행도를 백분율로 쓰는지. 아니면 완료 체크만 보여 준다.
+const props = defineProps<{ node: TaskNode; lane: Lane | undefined; percent?: boolean }>()
 const emit = defineEmits<{
   save: [patch: NodePatch]
   duplicate: []
@@ -119,10 +120,14 @@ function save() {
         <span v-if="tagError" class="err">{{ tagError }}</span>
       </div>
 
-      <div class="field">
+      <div v-if="percent" class="field">
         <label for="n-progress">진행도 {{ progress }}%</label>
         <input id="n-progress" v-model.number="progress" type="range" min="0" max="100" step="1" />
       </div>
+      <label v-else class="check-row done-row">
+        <input type="checkbox" :checked="progress === 100" @change="progress = ($event.target as HTMLInputElement).checked ? 100 : 0" />
+        완료
+      </label>
 
       <div class="field">
         <label for="n-deadline">데드라인 (정렬용)</label>
@@ -171,6 +176,9 @@ function save() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+.done-row {
+  margin-bottom: 12px;
 }
 .check-row {
   display: flex;

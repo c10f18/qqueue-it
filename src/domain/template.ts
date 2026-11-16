@@ -15,6 +15,7 @@ export function createTemplateFromBoard(data: BoardData, name: string): Template
       slotCount: data.board.slotOrder.length,
       graph: data.board.settings.graph ? structuredClone(data.board.settings.graph) : undefined,
       list: data.board.settings.list ? structuredClone(data.board.settings.list) : undefined,
+      percent: data.board.settings.percent,
       nodes: data.nodes.map((n) => ({
         name: n.name,
         description: n.description,
@@ -67,6 +68,7 @@ export function createBoardFromTemplate(template: Template, boardName: string): 
         showSlotNumbers: true,
         ...(snap.graph ? { graph: structuredClone(snap.graph) } : {}),
         ...(snap.list ? { list: structuredClone(snap.list) } : {}),
+        ...(snap.percent ? { percent: true } : {}),
       },
       createdAt: now,
       updatedAt: now,

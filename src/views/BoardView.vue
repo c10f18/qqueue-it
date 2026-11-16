@@ -31,7 +31,8 @@ const renaming = ref(false)
 const panel = ref<'settings' | null>(null)
 // 정렬을 누를 때마다 올려서 그래프가 화면을 다시 맞추게 한다.
 const fitTick = ref(0)
-const viewTab = ref<'list' | 'graph'>('list')
+// 보기 모드는 큐 그래프부터 보여 준다.
+const viewTab = ref<'list' | 'graph'>('graph')
 const nameDraft = ref('')
 
 watch(
@@ -394,8 +395,8 @@ onUnmounted(() => {
 
     <div v-else class="body view-layout">
       <div class="view-tabs" role="tablist">
-        <button role="tab" :class="{ on: viewTab === 'list' }" @click="viewTab = 'list'">리스트</button>
         <button role="tab" :class="{ on: viewTab === 'graph' }" @click="viewTab = 'graph'">큐 그래프</button>
+        <button role="tab" :class="{ on: viewTab === 'list' }" @click="viewTab = 'list'">리스트</button>
       </div>
       <div class="view-body">
         <ListView v-if="viewTab === 'list'" :data="data" />

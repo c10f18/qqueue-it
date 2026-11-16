@@ -16,7 +16,7 @@ const { fields, completed } = useNodeDisplay(
     <template v-for="f in fields" :key="f.key">
       <span v-if="f.key === 'icon'">{{ f.value }}</span>
       <b v-else-if="f.key === 'name'">{{ f.value }}</b>
-      <ProgressControl v-else-if="f.key === 'progress'" :node-id="node.id" :progress="node.progress" compact />
+      <ProgressControl v-else-if="f.key === 'progress'" :node-id="node.id" :progress="node.progress" compact check />
       <span v-else-if="f.value" class="extra">{{ f.label }} {{ f.value }}</span>
     </template>
   </span>

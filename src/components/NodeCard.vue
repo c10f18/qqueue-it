@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { isCompleted, type LabelGroup, type TaskNode } from '../domain'
+import { useBoardStore } from '../stores/board'
 import ProgressControl from './ProgressControl.vue'
 
 const props = defineProps<{
@@ -24,6 +25,10 @@ const emit = defineEmits<{
   toggleDone: []
   dragStart: [e: PointerEvent]
 }>()
+
+// 백분율을 쓰지 않는 보드에서는 진행도 줄을 숨기고 제목 옆의 체크만 쓴다.
+const store = useBoardStore()
+const percentMode = computed(() => store.current?.board.settings.percent === true)
 
 const input = ref<HTMLInputElement | null>(null)
 const draftName = ref(props.node.name)
@@ -107,7 +112,7 @@ function onPointerDown(e: PointerEvent) {
       <button
         class="check"
         :class="{ on: isCompleted(node) }"
-        :title="isCompleted(node) ? '완료 취소 (0%)' : '완료 (100%)'"
+        :title="isCompleted(node) ? '완료 취소' : '완료'"
         @click.stop="emit('toggleDone')"
       >
         ✓
@@ -131,7 +136,7 @@ function onPointerDown(e: PointerEvent) {
       @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
     />
 
-    <div class="row meta">
+    <div v-if="percentMode" class="row meta">
       <ProgressControl :node-id="node.id" :progress="node.progress" />
     </div>
 

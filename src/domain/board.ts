@@ -51,6 +51,14 @@ export function setShowSlotNumbers(data: BoardData, show: boolean): OpResult {
   return { data: d }
 }
 
+/** 진행도를 백분율(%)로 쓸지 정한다. 끄면 완료 체크만 쓰고 % 표시는 어디에도 나오지 않는다. */
+export function setPercentMode(data: BoardData, on: boolean): OpResult {
+  const d = draft(data)
+  if (on) d.board.settings.percent = true
+  else delete d.board.settings.percent
+  return { data: d }
+}
+
 /** 보기 모드 리스트 설정 변경. patch에 undefined로 넣은 항목은 기본값으로 되돌린다. */
 export function setListStyle(data: BoardData, patch: ListStyle): OpResult {
   const d = draft(data)

@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { updateNode } from '../domain'
 import { useBoardStore } from '../stores/board'
 
 // 진행도 조절: 슬라이더를 끌어 1% 단위로 바꾸거나, % 숫자를 눌러 직접 입력한다.
 // 수정 모드와 보기 모드 양쪽에서 쓴다.
-const props = defineProps<{ nodeId: string; progress: number; compact?: boolean }>()
+// 보드의 "백분율" 옵션이 꺼져 있으면 슬라이더와 % 숫자는 나오지 않고 완료 체크만 남는다.
+// check: 한 번에 100%(완료)로 만드는 동그란 체크 버튼을 함께 보일지.
+const props = defineProps<{ nodeId: string; progress: number; compact?: boolean; check?: boolean }>()
 const store = useBoardStore()
+const percentMode = computed(() => store.current?.board.settings.percent === true)
+const done = computed(() => props.progress === 100)
+function toggleDone() {
+  store.apply((d) => updateNode(d, props.nodeId, { progress: done.value ? 0 : 100 }))
+}
 
 // 끄는 동안은 되돌리기 기록 한 칸으로 묶는다.
 function slide(e: Event) {
@@ -40,7 +47,8 @@ function commitTyping() {
 </script>
 
 <template>
-  <span class="pc" :class="{ compact, done: progress === 100 }" @click.stop>
+  <span v-if="percentMode || check" class="pc" :class="{ compact, done, 'check-only': !percentMode }" @click.stop>
+    <template v-if="percentMode">
     <input
       class="slider"
       type="range"
@@ -67,6 +75,19 @@ function commitTyping() {
       @blur="commitTyping"
     />
     <button v-else type="button" class="pct" title="눌러서 숫자로 입력" @click="startTyping">{{ progress }}%</button>
+    </template>
+    <button
+      v-if="check"
+      type="button"
+      class="check"
+      :class="{ on: done }"
+      :title="done ? '완료 취소' : '완료'"
+      :aria-label="done ? '완료 취소' : '완료'"
+      :aria-pressed="done"
+      @click="toggleDone"
+    >
+      ✓
+    </button>
   </span>
 </template>
 
@@ -128,6 +149,33 @@ function commitTyping() {
 }
 .pc.done {
   --bar: var(--ok);
+}
+/* 백분율을 안 쓸 때는 체크만 오른쪽에 둔다 */
+.pc.check-only {
+  justify-content: flex-end;
+}
+.pc.compact.check-only {
+  flex: none;
+}
+.check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  line-height: 1;
+}
+.check:hover {
+  color: var(--text-dim);
+}
+.check.on {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
 }
 .pct,
 .num {

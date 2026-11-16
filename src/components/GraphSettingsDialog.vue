@@ -12,6 +12,7 @@ import {
   GRAPH_RANGES,
   setGraphStyle,
   setListStyle,
+  setPercentMode,
   type BoardData,
   type DoneMark,
   type EdgeHead,
@@ -48,7 +49,7 @@ const LAYOUT_GROUPS = [
 // 탭마다 왼쪽 아래에 놓는 "기본값으로": 지금 탭의 내용만 되돌린다.
 const RESET_HINT: Record<SettingsTab, string> = {
   theme: '테마, 방식, 표시 속성을 되돌립니다',
-  graph: '배경 색, 보드 이름 표시, 간격을 되돌립니다. 정렬 방향은 그대로 둡니다',
+  graph: '배경 색, 보드 이름 표시, 백분율 표시, 간격을 되돌립니다. 정렬 방향은 그대로 둡니다',
   node: '노드 크기, 진행률 표시, 완료 색·표시를 되돌립니다. 노드 라벨은 그대로 둡니다',
   line: '연결 화살표의 색, 끝 모양, 끝 크기, 선 두께를 되돌립니다',
   layout: '화면 크기에 맞는 기본 배치로 되돌립니다',
@@ -57,6 +58,7 @@ function resetTab() {
   if (tab.value === 'theme') setList({ skin: undefined, flat: undefined, attrs: undefined })
   else if (tab.value === 'graph') {
     set({ background: undefined, showBoardName: undefined, slotGap: undefined, laneGap: undefined })
+    if (percentMode.value) store.apply((d) => setPercentMode(d, false))
     emit('aligned')
   } else if (tab.value === 'node') set({ nodeSize: undefined, showProgress: undefined, doneColor: undefined, doneMark: undefined })
   else if (tab.value === 'line') set({ edgeColor: undefined, edgeHead: undefined, edgeHeadSize: undefined, edgeWidth: undefined })
@@ -65,6 +67,7 @@ function resetTab() {
 const store = useBoardStore()
 
 const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
+const percentMode = computed(() => props.data.board.settings.percent === true)
 function set(patch: GraphStyle) {
   store.apply((d) => setGraphStyle(d, patch))
 }
@@ -169,6 +172,16 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           @change="set({ showBoardName: ($event.target as HTMLInputElement).checked })"
         />
       </label>
+      <label class="switch-row gap" title="끄면 완료 체크만 쓰고, % 숫자와 진행도 슬라이더는 어디에도 나오지 않습니다">
+        <span>진행도를 백분율(%)로 표시</span>
+        <input
+          type="checkbox"
+          class="switch"
+          role="switch"
+          :checked="percentMode"
+          @change="store.apply((d) => setPercentMode(d, ($event.target as HTMLInputElement).checked))"
+        />
+      </label>
 
         <section>
           <h3>정렬</h3>
@@ -191,13 +204,14 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             @change="setNum('nodeSize', $event)"
           />
         </div>
-        <label class="switch-row">
-          <span>진행률 표시</span>
+        <label class="switch-row" :class="{ disabled: !percentMode }" :title="percentMode ? undefined : '그래프 탭의 “진행도를 백분율(%)로 표시”를 켜야 쓸 수 있습니다'">
+          <span>그래프 노드에 진행률 표시</span>
           <input
             type="checkbox"
             class="switch"
             role="switch"
-            :checked="style.showProgress ?? true"
+            :disabled="!percentMode"
+            :checked="percentMode && (style.showProgress ?? true)"
             @change="set({ showProgress: ($event.target as HTMLInputElement).checked })"
           />
         </label>
@@ -474,6 +488,13 @@ input[type='range'] {
   line-height: 1;
 }
 /* 켜고 끄는 슬라이드 토글 */
+.switch-row.gap {
+  margin-top: 10px;
+}
+.switch-row.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .switch-row {
   display: flex;
   justify-content: space-between;

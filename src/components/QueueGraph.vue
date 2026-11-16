@@ -45,6 +45,7 @@ const showLabels = ref(true)
 
 const style = computed<GraphStyle>(() => props.data.board.settings.graph ?? {})
 const direction = computed(() => style.value.direction ?? 'down')
+const percentMode = computed(() => props.data.board.settings.percent === true)
 const slotGap = computed(() => style.value.slotGap ?? GRAPH_RANGES.slotGap.default)
 const laneGap = computed(() => style.value.laneGap ?? GRAPH_RANGES.laneGap.default)
 const nodeR = computed(() => style.value.nodeSize ?? GRAPH_RANGES.nodeSize.default)
@@ -240,7 +241,8 @@ function draw() {
   const edgeHead = st.edgeHead ?? 'arrow'
   const edgeHeadSize = st.edgeHeadSize ?? GRAPH_RANGES.edgeHeadSize.default
   const NODE_R = nodeR.value
-  const showProgress = st.showProgress ?? true
+  // 보드가 백분율을 쓰지 않으면 진행률(링·% 글자)은 그리지 않는다.
+  const showProgress = percentMode.value && (st.showProgress ?? true)
 
   const project = makeProjector(view.value, w, h)
   const { nodes, pos, heads, colorOf, edges } = layout.value
@@ -444,7 +446,8 @@ function toSvg(): string {
   const edgeWidth = st.edgeWidth ?? 1.5
   const edgeHead = st.edgeHead ?? 'arrow'
   const headSize = st.edgeHeadSize ?? GRAPH_RANGES.edgeHeadSize.default
-  const showProgress = st.showProgress ?? true
+  // 보드가 백분율을 쓰지 않으면 진행률(링·% 글자)은 그리지 않는다.
+  const showProgress = percentMode.value && (st.showProgress ?? true)
   const R = nodeR.value
 
   const project = makeProjector(view.value, w, h)
@@ -776,7 +779,7 @@ watch(
     <p v-if="layout.nodes.length === 0" class="empty muted">표시할 작업이 없습니다</p>
     <div v-if="selectedNode" class="info">
       <b>{{ selectedNode.icon }} {{ selectedNode.name }}</b>
-      <span class="muted">{{ selectedNode.progress }}%</span>
+      <span class="muted">{{ percentMode ? `${selectedNode.progress}%` : selectedNode.progress === 100 ? '완료' : '' }}</span>
     </div>
     </div>
   </div>

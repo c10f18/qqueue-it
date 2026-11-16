@@ -55,7 +55,7 @@ function nodeAt(slotId: string, laneId: string) {
 }
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `44px repeat(${Math.max(lanes.value.length, 1)}, minmax(180px, 1fr)) 40px`,
+  gridTemplateColumns: `44px repeat(${Math.max(lanes.value.length, 1)}, minmax(180px, ${lanes.value.length <= 1 ? '360px' : '1fr'})) 40px`,
 }))
 function laneStyle(laneId: string) {
   const idx = allLanes.value.findIndex((l) => l.id === laneId)
@@ -319,6 +319,7 @@ function laneNodeCount(laneId: string) {
     :key="editorNode.id"
     :node="editorNode"
     :lane="allLanes.find((l) => l.id === editorNode!.laneId)"
+    :percent="data.board.settings.percent === true"
     @save="saveEditor"
     @duplicate="copyNode(editorNode.id)"
     @remove="removeNode(editorNode.id)"

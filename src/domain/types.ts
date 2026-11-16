@@ -5,7 +5,13 @@ export interface Board {
   name: string
   /** 슬롯 ID 배열. 이 순서 = 진행 순서 (FR-01, FR-04) */
   slotOrder: string[]
-  settings: { showSlotNumbers: boolean; graph?: GraphStyle; list?: ListStyle }
+  settings: {
+    showSlotNumbers: boolean
+    graph?: GraphStyle
+    list?: ListStyle
+    /** 진행도를 백분율(%)로 쓸지. 꺼져 있으면(기본) 완료 체크만 한다. */
+    percent?: boolean
+  }
   createdAt: number
   updatedAt: number
 }
@@ -193,6 +199,7 @@ export interface Template {
     slotCount: number
     graph?: GraphStyle
     list?: ListStyle
+    percent?: boolean
     nodes: (Omit<TaskNode, 'id' | 'boardId' | 'slotId' | 'laneId' | 'linkFilter'> & {
       slotIndex: number
       laneIndex: number

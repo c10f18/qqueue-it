@@ -52,7 +52,8 @@ function nodeIn(row: Extract<Row, { type: 'slot' }>, laneId: string) {
   return row.nodes.find((n) => n.laneId === laneId)
 }
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `36px repeat(${Math.max(lanes.value.length, 1)}, minmax(160px, 1fr))`,
+  // 레인이 하나뿐이면 가로를 다 쓰지 않는다.
+  gridTemplateColumns: `36px repeat(${Math.max(lanes.value.length, 1)}, minmax(160px, ${lanes.value.length <= 1 ? '360px' : '1fr'}))`,
 }))
 // 슬롯 번호는 항상 표시한다.
 const showNumbers = true

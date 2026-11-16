@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { TaskNode } from '../../../domain'
 import { useNodeDisplay, type AttrKey } from '../../../composables/useNodeDisplay'
+import { useBoardStore } from '../../../stores/board'
 import ProgressControl from '../../ProgressControl.vue'
 
 // 심플 스킨 — 레이어별 모드: 칸 전체를 차지하고 선택한 속성을 모두 보여준다.
@@ -11,6 +12,9 @@ const { fields, completed } = useNodeDisplay(
   () => props.visibleAttrs,
 )
 const has = (k: AttrKey) => props.visibleAttrs.includes(k)
+// 백분율을 안 쓰는 보드에서는 완료 체크를 이름 옆(오른쪽 끝)에 둔다.
+const store = useBoardStore()
+const percentMode = computed(() => store.current?.board.settings.percent === true)
 const rest = computed(() => fields.value.filter((f) => !['name', 'icon', 'progress'].includes(f.key)))
 </script>
 
@@ -19,8 +23,9 @@ const rest = computed(() => fields.value.filter((f) => !['name', 'icon', 'progre
     <div class="head">
       <span v-if="has('icon') && node.icon">{{ node.icon }}</span>
       <b v-if="has('name')" class="name">{{ node.name }}</b>
+      <ProgressControl v-if="has('progress') && !percentMode" class="right" :node-id="node.id" :progress="node.progress" check />
     </div>
-    <ProgressControl v-if="has('progress')" :node-id="node.id" :progress="node.progress" />
+    <ProgressControl v-if="has('progress') && percentMode" :node-id="node.id" :progress="node.progress" check />
     <dl v-if="rest.length">
       <template v-for="f in rest" :key="f.key"><dt>{{ f.label }}</dt><dd>{{ f.value || '-' }}</dd></template>
     </dl>
@@ -41,6 +46,12 @@ const rest = computed(() => fields.value.filter((f) => !['name', 'icon', 'progre
   display: flex;
   gap: 6px;
   align-items: center;
+}
+.name {
+  min-width: 0;
+}
+.right {
+  margin-left: auto;
 }
 .done .name {
   color: var(--text-dim);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cloneBoardData, setGraphStyle, setLaneColor, setListStyle, updateNode } from './index'
+import { cloneBoardData, setGraphStyle, setLaneColor, setListStyle, setPercentMode, updateNode } from './index'
 import { build } from './testUtils'
 
 describe('색·모양 설정', () => {
@@ -64,6 +64,16 @@ describe('색·모양 설정', () => {
     d = setListStyle(d, { flat: undefined }).data
     expect(d.board.settings.list).toEqual({ skin: 'simple', attrs: ['name', 'progress'] })
     expect(cloneBoardData(d, '복제').board.settings.list).toEqual(d.board.settings.list)
+  })
+
+  it('백분율 사용 여부: 기본은 꺼짐이고, 켜면 복제 때 함께 간다', () => {
+    let d = build(['A'], [['a']])
+    expect(d.board.settings.percent).toBeUndefined()
+    d = setPercentMode(d, true).data
+    expect(d.board.settings.percent).toBe(true)
+    expect(cloneBoardData(d, '복제').board.settings.percent).toBe(true)
+    d = setPercentMode(d, false).data
+    expect('percent' in d.board.settings).toBe(false)
   })
 
   it('복제하면 레인 색·노드 색/사진·그래프 설정이 함께 복제된다', () => {
