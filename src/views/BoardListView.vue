@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { navigate } from '../composables/useRoute'
 import { DomainError } from '../domain'
 import { saveBlob } from '../export/download'
@@ -29,10 +29,28 @@ try {
 } catch {
   // 기억해 둔 값이 없거나 못 읽으면 기본 정렬로 시작한다.
 }
-function setSort(key: SortKey) {
-  // 날짜는 최신순, 이름은 가나다순이 기본 방향
-  sortKey.value = key
-  sortDesc.value = key !== 'name'
+/** 정렬 기준을 누른다: 이미 고른 기준이면 오름차순↔내림차순을 뒤집고, 다른 기준이면 그 기준으로 바꾼다. */
+function clickSort(key: SortKey) {
+  if (sortKey.value === key) sortDesc.value = !sortDesc.value
+  else {
+    sortKey.value = key
+    // 처음 고를 때: 날짜는 내림차순(최신순), 이름은 오름차순(가나다순)
+    sortDesc.value = key !== 'name'
+  }
+  rememberSort()
+}
+
+// 검색 칸은 돋보기를 눌러야 열린다. 닫으면 검색어도 지운다.
+const searchOpen = ref(false)
+const searchInput = ref<HTMLInputElement | null>(null)
+async function toggleSearch() {
+  searchOpen.value = !searchOpen.value
+  if (!searchOpen.value) {
+    query.value = ''
+    return
+  }
+  await nextTick()
+  searchInput.value?.focus()
 }
 function rememberSort() {
   try {
@@ -41,10 +59,7 @@ function rememberSort() {
     // 기억하지 못해도 동작에는 지장이 없다.
   }
 }
-const sortHint = computed(() => {
-  if (sortKey.value === 'name') return sortDesc.value ? '이름 역순' : '이름 가나다순'
-  return sortDesc.value ? '최신순' : '오래된 순'
-})
+const sortHint = computed(() => (sortDesc.value ? '내림차순' : '오름차순'))
 
 const shownBoards = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -200,15 +215,8 @@ function fmt(ms: number) {
 <template>
   <main class="list-page">
     <div class="top">
-      <input
-        v-model="query"
-        class="input search"
-        type="search"
-        placeholder="보드 이름으로 검색"
-        aria-label="보드 검색"
-        maxlength="60"
-      />
       <button class="btn primary" type="button" @click="create">+ 새 보드</button>
+      <span class="spacer" />
       <div class="page-menu">
         <button
           class="menu-btn"
@@ -258,6 +266,35 @@ function fmt(ms: number) {
           <span class="muted">
             {{ query.trim() ? `검색 결과 ${shownBoards.length}개 / 전체 ${store.boards.length}개` : `보드 ${store.boards.length}개` }}
           </span>
+          <button
+            class="icon-btn"
+            type="button"
+            :class="{ on: searchOpen }"
+            :title="searchOpen ? '검색 닫기' : '검색'"
+            :aria-label="searchOpen ? '검색 닫기' : '검색'"
+            :aria-expanded="searchOpen"
+            @click="toggleSearch"
+          >
+            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+          <label v-if="searchOpen" class="search-box">
+            <input
+              ref="searchInput"
+              v-model="query"
+              type="text"
+              placeholder="검색"
+              aria-label="보드 검색"
+              maxlength="60"
+              @keydown.esc.prevent="toggleSearch"
+            />
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </label>
           <span class="spacer" />
           <div class="sort" role="group" aria-label="정렬">
             <button
@@ -266,15 +303,13 @@ function fmt(ms: number) {
               type="button"
               :class="{ on: sortKey === x.key }"
               :aria-pressed="sortKey === x.key"
-              @click="(setSort(x.key), rememberSort())"
+              :title="sortKey === x.key ? `${x.label} ${sortHint} (누르면 ${sortDesc ? '오름차순' : '내림차순'}으로)` : `${x.label} 순으로 정렬`"
+              @click="clickSort(x.key)"
             >
-              {{ x.label }}
+              {{ x.label }}<span v-if="sortKey === x.key" class="dir" :aria-label="sortHint">{{ sortDesc ? '↓' : '↑' }}</span>
             </button>
           </div>
-          <button class="btn small" type="button" :title="`정렬 방향 바꾸기 (지금: ${sortHint})`" @click="((sortDesc = !sortDesc), rememberSort())">
-            {{ sortDesc ? '↓' : '↑' }} {{ sortHint }}
-          </button>
-          <button class="btn small" @click="toggleSelecting">선택 삭제…</button>
+          <button class="btn small" @click="toggleSelecting">보드 삭제</button>
         </template>
       </div>
 
@@ -381,9 +416,49 @@ function fmt(ms: number) {
   align-items: center;
   margin-bottom: 24px;
 }
-.search {
+/* 돋보기 버튼과, 누르면 열리는 검색 칸(안쪽 오른쪽에도 돋보기) */
+.icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.icon-btn:hover,
+.icon-btn.on {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.search-box {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  width: min(240px, 100%);
+  padding: 3px 8px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-dim);
+}
+.search-box:focus-within {
+  border-color: var(--accent);
+}
+.search-box input {
   flex: 1;
   min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+.sort .dir {
+  margin-left: 3px;
 }
 .page-menu {
   position: relative;
