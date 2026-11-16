@@ -83,10 +83,13 @@ const layout = computed(() => {
   return { nodes, pos, heads, colorOf, edges: computeDerivedEdges(props.data) }
 })
 
-/** 이동·회전을 초기화하고 전체가 보이게 확대 배율을 맞춘다. */
+/**
+ * 이동·회전을 초기화하고 전체가 보이게 확대 배율을 맞춘다.
+ * 기본은 100%(설정한 크기 그대로)이고, 다 들어오지 않을 때만 줄인다. 내용이 적다고 100%보다 키우지는 않는다.
+ */
 function fit() {
   const pts = [...layout.value.pos.values(), ...layout.value.heads.map((h) => h.pos)]
-  view.value = { ...DEFAULT_VIEW, zoom: fitZoom(pts, size.value.w, size.value.h) }
+  view.value = { ...DEFAULT_VIEW, zoom: Math.min(1, fitZoom(pts, size.value.w, size.value.h)) }
 }
 /** 뷰 리셋: 저장해 둔 뷰로 돌아간다. 저장한 뷰가 없으면 화면에 맞춘다. */
 function resetView() {
