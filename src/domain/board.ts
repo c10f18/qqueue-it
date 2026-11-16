@@ -13,7 +13,7 @@ export function createBoardData(name: string): BoardData {
       id: boardId,
       name: name.trim() || '이름 없는 보드',
       slotOrder: [slot.id],
-      settings: { showSlotNumbers: true },
+      settings: {},
       createdAt: now,
       updatedAt: now,
     },
@@ -28,7 +28,6 @@ export function createBoardData(name: string): BoardData {
         name: DEFAULT_NODE_NAME,
         tags: [],
         progress: 0,
-        count: 0,
         visible: true,
         linkFilter: { touched: false, excludedLaneIds: [] },
         createdAt: now,
@@ -42,12 +41,6 @@ export function renameBoard(data: BoardData, name: string): OpResult {
   if (!trimmed) throw new DomainError('invalid-argument', '보드 이름을 입력해 주세요.')
   const d = draft(data)
   d.board.name = trimmed
-  return { data: d }
-}
-
-export function setShowSlotNumbers(data: BoardData, show: boolean): OpResult {
-  const d = draft(data)
-  d.board.settings.showSlotNumbers = show
   return { data: d }
 }
 

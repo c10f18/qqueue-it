@@ -35,7 +35,6 @@ export function build(laneNames: string[], rows: (string | null)[][]): BoardData
         name,
         tags: [],
         progress: 0,
-        count: 0,
         visible: true,
         linkFilter: { touched: false, excludedLaneIds: [] },
         createdAt: 0,

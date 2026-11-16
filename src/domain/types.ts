@@ -6,7 +6,6 @@ export interface Board {
   /** 슬롯 ID 배열. 이 순서 = 진행 순서 (FR-01, FR-04) */
   slotOrder: string[]
   settings: {
-    showSlotNumbers: boolean
     graph?: GraphStyle
     list?: ListStyle
     /** 진행도를 백분율(%)로 쓸지. 꺼져 있으면(기본) 완료 체크만 한다. */
@@ -44,8 +43,6 @@ export interface GraphStyle {
   direction?: GraphDirection
   doneColor?: string
   doneMark?: DoneMark
-  /** 노드에 진행률 링을 표시할지 */
-  showProgress?: boolean
   edgeColor?: string
   edgeHead?: EdgeHead
   edgeWidth?: number
@@ -173,8 +170,6 @@ export interface TaskNode {
   labels?: Record<string, string>
   /** 0~100. 100이면 완료 (FR-53) — 완료여부는 저장하지 않는다 */
   progress: number
-  /** 순수 카운터 (FR-54) */
-  count: number
   /** FR-79 */
   visible: boolean
   /** epoch ms, 정렬용만 (NFR-04) */

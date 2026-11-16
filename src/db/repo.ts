@@ -1,7 +1,7 @@
 // 데이터 접근 어댑터. 화면/스토어는 Dexie를 직접 쓰지 않고 이 인터페이스만 쓴다.
 // 후일 서버 동기화로 교체할 때 이 파일만 바꾸면 된다. (명세 16장)
 
-import type { Board, BoardData, Template } from '../domain'
+import { cleanLegacy, type Board, type BoardData, type Template } from '../domain'
 import { QQueueDB } from './db'
 
 export interface BoardSummary extends Board {
@@ -45,7 +45,7 @@ export function createDexieRepo(db: QQueueDB = new QQueueDB()): BoardRepo {
         db.slots.where('boardId').equals(boardId).toArray(),
         db.nodes.where('boardId').equals(boardId).toArray(),
       ])
-      return { board, lanes, slots, nodes }
+      return cleanLegacy({ board, lanes, slots, nodes })
     },
 
     // 보드 하나는 수백 개 수준이라 통째로 갈아끼운다. 한 트랜잭션이라 중간 상태가 남지 않는다.

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { ref } from 'vue'
 
-type SettingsTab = 'theme' | 'graph' | 'node' | 'line' | 'layout'
+type SettingsTab = 'theme' | 'graph' | 'node' | 'label' | 'line' | 'layout'
 // 패널을 닫았다 열어도 마지막에 보던 탭에서 이어지도록 컴포넌트 밖에 둔다.
 const tab = ref<SettingsTab>('theme')
 </script>
@@ -10,6 +10,7 @@ const tab = ref<SettingsTab>('theme')
 import { computed } from 'vue'
 import {
   GRAPH_RANGES,
+  resetLabelGroupStyles,
   setGraphStyle,
   setListStyle,
   setPercentMode,
@@ -37,7 +38,8 @@ const emit = defineEmits<{ close: []; aligned: []; 'update:layout': [value: Edit
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'theme', label: '테마', hint: '보기 모드의 테마와 방식' },
   { id: 'graph', label: '그래프', hint: '그래프 표시 속성과 정렬' },
-  { id: 'node', label: '노드', hint: '노드 크기·라벨·완료 표시' },
+  { id: 'node', label: '노드', hint: '노드 크기·완료 표시' },
+  { id: 'label', label: '라벨', hint: '노드 라벨 그룹' },
   { id: 'line', label: '라인', hint: '연결 화살표' },
   { id: 'layout', label: '레이아웃', hint: '수정 화면의 그래프·카드 배치' },
 ]
@@ -50,7 +52,8 @@ const LAYOUT_GROUPS = [
 const RESET_HINT: Record<SettingsTab, string> = {
   theme: '테마, 방식, 표시 속성을 되돌립니다',
   graph: '배경 색, 보드 이름 표시, 백분율 표시, 간격을 되돌립니다. 정렬 방향은 그대로 둡니다',
-  node: '노드 크기, 진행률 표시, 완료 색·표시를 되돌립니다. 노드 라벨은 그대로 둡니다',
+  node: '노드 크기, 완료 색·표시를 되돌립니다',
+  label: '모든 라벨 그룹의 글꼴·스타일·크기·색을 되돌립니다. 그룹, 이름, 위치, 순서, 입력한 글자는 그대로 둡니다',
   line: '연결 화살표의 색, 끝 모양, 끝 크기, 선 두께를 되돌립니다',
   layout: '화면 크기에 맞는 기본 배치로 되돌립니다',
 }
@@ -60,7 +63,8 @@ function resetTab() {
     set({ background: undefined, showBoardName: undefined, slotGap: undefined, laneGap: undefined })
     if (percentMode.value) store.apply((d) => setPercentMode(d, false))
     emit('aligned')
-  } else if (tab.value === 'node') set({ nodeSize: undefined, showProgress: undefined, doneColor: undefined, doneMark: undefined })
+  } else if (tab.value === 'node') set({ nodeSize: undefined, doneColor: undefined, doneMark: undefined })
+  else if (tab.value === 'label') store.apply((d) => resetLabelGroupStyles(d))
   else if (tab.value === 'line') set({ edgeColor: undefined, edgeHead: undefined, edgeHeadSize: undefined, edgeWidth: undefined })
   else emit('update:layout', defaultLayout())
 }
@@ -172,7 +176,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           @change="set({ showBoardName: ($event.target as HTMLInputElement).checked })"
         />
       </label>
-      <label class="switch-row gap" title="끄면 완료 체크만 쓰고, % 숫자와 진행도 슬라이더는 어디에도 나오지 않습니다">
+      <label class="switch-row gap" title="켜면 카드에 진행도 슬라이더와 % 숫자가, 그래프 노드에 진행률이 나옵니다. 끄면 완료 체크만 씁니다">
         <span>진행도를 백분율(%)로 표시</span>
         <input
           type="checkbox"
@@ -204,22 +208,6 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             @change="setNum('nodeSize', $event)"
           />
         </div>
-        <label class="switch-row" :class="{ disabled: !percentMode }" :title="percentMode ? undefined : '그래프 탭의 “진행도를 백분율(%)로 표시”를 켜야 쓸 수 있습니다'">
-          <span>그래프 노드에 진행률 표시</span>
-          <input
-            type="checkbox"
-            class="switch"
-            role="switch"
-            :disabled="!percentMode"
-            :checked="percentMode && (style.showProgress ?? true)"
-            @change="set({ showProgress: ($event.target as HTMLInputElement).checked })"
-          />
-        </label>
-
-        <section>
-          <h3>노드 라벨</h3>
-          <LabelGroupsEditor :data="data" />
-        </section>
 
         <section>
           <h3>완료된 노드</h3>
@@ -248,6 +236,12 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
         </div>
         </section>
 
+      </div>
+
+      <!-- 라벨: 노드 둘레에 표시하는 글자 그룹 -->
+      <div v-else-if="tab === 'label'" role="tabpanel">
+        <p class="muted intro">위에 있는 그룹일수록 그래프에서 위에 그려집니다.</p>
+        <LabelGroupsEditor :data="data" />
       </div>
 
       <!-- 라인: 연결 화살표 -->
@@ -353,7 +347,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
   pointer-events: none;
 }
 .dialog {
-  width: min(340px, 100%);
+  width: min(380px, 100%);
   border: 1px solid var(--border);
   pointer-events: auto;
 }
@@ -365,7 +359,7 @@ section {
 /* 범위별 탭 */
 .tabs {
   display: grid;
-  grid-template-columns: repeat(5, auto);
+  grid-template-columns: repeat(6, auto);
   margin-bottom: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;

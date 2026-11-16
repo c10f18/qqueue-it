@@ -4,6 +4,7 @@ import {
   addLabelGroup,
   labelGroupsOf,
   labelAngle,
+  moveLabelGroup,
   removeLabelGroup,
   updateLabelGroup,
   LABEL_SIZE,
@@ -117,8 +118,9 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 
 <template>
   <div class="groups">
-    <div v-for="g in groups" :key="g.id" class="group" :class="{ off: g.visible === false }">
+    <div v-for="(g, gi) in groups" :key="g.id" class="group" :class="{ off: g.visible === false }">
       <div class="row">
+        <span class="order" :title="`${gi + 1}번째 (번호가 작을수록 위에 그려집니다)`">{{ gi + 1 }}</span>
         <span v-if="g.id === NAME_LABEL_GROUP_ID" class="fixed-name" title="첫 그룹은 작업 이름을 표시하며 이름을 바꿀 수 없습니다">
           {{ NAME_LABEL_GROUP_NAME }}
         </span>
@@ -131,6 +133,26 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
           @change="rename(g.id, $event)"
           @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
         />
+        <button
+          type="button"
+          class="btn ghost small"
+          :disabled="gi === 0"
+          title="위로 (더 위에 그리기)"
+          :aria-label="`${g.name} 그룹을 위로`"
+          @click="store.apply((d) => moveLabelGroup(d, g.id, -1))"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          class="btn ghost small"
+          :disabled="gi === groups.length - 1"
+          title="아래로 (더 아래에 그리기)"
+          :aria-label="`${g.name} 그룹을 아래로`"
+          @click="store.apply((d) => moveLabelGroup(d, g.id, 1))"
+        >
+          ↓
+        </button>
         <button
           type="button"
           class="btn ghost small"
@@ -278,7 +300,19 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 /* 숨긴 그룹은 흐리게 보여 준다 (보이기 버튼은 또렷하게) */
 .group.off > :not(:first-child),
 .group.off .name,
-.group.off .fixed-name {
+.group.off .order {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.fixed-name {
   opacity: 0.45;
 }
 .fixed-name {

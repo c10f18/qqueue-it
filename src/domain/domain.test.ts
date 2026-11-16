@@ -166,12 +166,11 @@ describe('노드 생성/수정/복제', () => {
 
   it('복제는 원본 아래 새 슬롯에 진행도 0으로 만든다', () => {
     let d = build(['L'], [['A'], ['B']])
-    d = updateNode(d, 'A', { progress: 80, count: 3 }).data
+    d = updateNode(d, 'A', { progress: 80 }).data
     const r = duplicateNode(d, 'A').data
     expect(grid(r)).toEqual([['A'], ['A (복사)'], ['B']])
     const copy = r.nodes.find((n) => n.name === 'A (복사)')!
     expect(copy.progress).toBe(0)
-    expect(copy.count).toBe(0)
     assertInvariants(r)
   })
 })

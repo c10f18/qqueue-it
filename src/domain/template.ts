@@ -25,7 +25,6 @@ export function createTemplateFromBoard(data: BoardData, name: string): Template
         labels: n.labels ? { ...n.labels } : undefined,
         tags: [...n.tags],
         progress: n.progress,
-        count: n.count,
         visible: n.visible,
         deadline: n.deadline,
         createdAt: n.createdAt,
@@ -65,7 +64,6 @@ export function createBoardFromTemplate(template: Template, boardName: string): 
       name: boardName.trim() || template.name,
       slotOrder: slots.map((s) => s.id),
       settings: {
-        showSlotNumbers: true,
         ...(snap.graph ? { graph: structuredClone(snap.graph) } : {}),
         ...(snap.list ? { list: structuredClone(snap.list) } : {}),
         ...(snap.percent ? { percent: true } : {}),
@@ -88,7 +86,6 @@ export function createBoardFromTemplate(template: Template, boardName: string): 
       ...(n.labels ? { labels: { ...n.labels } } : {}),
       tags: [...n.tags],
       progress: 0,
-      count: 0,
       visible: n.visible,
       deadline: n.deadline,
       linkFilter: {

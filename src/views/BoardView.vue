@@ -138,11 +138,10 @@ function commitRename() {
   if (nameDraft.value.trim()) store.renameCurrent(nameDraft.value)
 }
 
-// ── 저장: 수정 모드에서는 "저장"을 눌러야 저장된다 ─────────────
+// 모든 변경은 바로 저장된다. 모드가 바뀌면 열려 있던 것들을 닫는다.
 watch(
   () => props.mode,
-  (mode) => {
-    store.setAutosave(mode !== 'edit')
+  () => {
     renaming.value = false
     panel.value = null
     bulkOpen.value = false
@@ -150,36 +149,6 @@ watch(
   },
   { immediate: true },
 )
-const leaveOpen = ref(false)
-async function saveAndClose() {
-  await store.save()
-  navigate({ name: 'view', boardId: props.boardId })
-}
-/** 수정 모드에서 목록으로 나가기: 저장하지 않은 변경이 있으면 먼저 묻는다. */
-function leaveToList() {
-  if (store.dirty) leaveOpen.value = true
-  else navigate({ name: 'list' })
-}
-async function leave(keep: boolean) {
-  leaveOpen.value = false
-  if (keep) await store.save()
-  else await store.discard()
-  navigate({ name: 'list' })
-}
-// 수정 모드에서는 저장 안 된 변경을 1분마다 자동으로 저장한다.
-const AUTOSAVE_MS = 60_000
-const autoSavedAt = ref('')
-let autosaveTimer = 0
-async function autosaveTick() {
-  if (props.mode !== 'edit' || !store.dirty) return
-  await store.save()
-  const d = new Date()
-  autoSavedAt.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (store.dirty) e.preventDefault()
-}
 
 // ── 패널 밖을 누르면 닫는다 ────────────────────────────────
 function onDocDown(e: PointerEvent) {
@@ -253,15 +222,9 @@ function resizeKey(e: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocDown, true)
-  window.addEventListener('beforeunload', onBeforeUnload)
-  autosaveTimer = window.setInterval(() => void autosaveTick(), AUTOSAVE_MS)
 })
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocDown, true)
-  window.removeEventListener('beforeunload', onBeforeUnload)
-  clearInterval(autosaveTimer)
-  // 다른 화면으로 넘어가면 밀린 변경을 저장하고 자동 저장으로 돌아간다.
-  store.setAutosave(true)
 })
 </script>
 
@@ -273,8 +236,7 @@ onUnmounted(() => {
 
   <div v-else-if="data" class="board-page">
     <div class="toolbar">
-      <button v-if="mode === 'edit'" class="btn ghost" title="보드 목록" @click="leaveToList">←</button>
-      <a v-else class="btn ghost" href="#/" title="보드 목록">←</a>
+      <a class="btn ghost" href="#/" title="보드 목록">←</a>
 
       <input
         v-if="renaming"
@@ -359,10 +321,8 @@ onUnmounted(() => {
         </span>
 
         <span class="spacer" />
-        <span v-if="store.dirty" class="unsaved" role="status" title="1분마다 자동으로 저장됩니다">● 저장 안 됨</span>
-        <span v-else-if="autoSavedAt" class="muted autosaved" role="status">자동 저장 {{ autoSavedAt }}</span>
-        <button class="btn" :disabled="!store.dirty" @click="store.save()">저장</button>
-        <button class="btn primary" @click="saveAndClose">저장 및 닫기</button>
+        <span class="muted autosaved" title="바꾸는 즉시 저장됩니다. 실수는 되돌리기(Ctrl+Z)로 바로잡으세요">자동 저장</span>
+        <button class="btn primary" title="수정을 마치고 보기 모드로" @click="navigate({ name: 'view', boardId })">완료</button>
       </template>
     </div>
 
@@ -408,18 +368,6 @@ onUnmounted(() => {
 
     <BulkProgressDialog v-if="bulkOpen && mode === 'view'" :data="data" @apply="applyBulk" @reset-all="resetAll" @close="bulkOpen = false" />
 
-    <div v-if="leaveOpen" class="overlay" @pointerdown.self="leaveOpen = false">
-      <div class="dialog" role="alertdialog" aria-label="저장하지 않은 변경">
-        <h2>저장하지 않은 변경이 있습니다</h2>
-        <p class="muted">저장하지 않고 나가면 마지막으로 저장(자동 저장 포함)한 뒤의 변경이 사라집니다.</p>
-        <div class="actions">
-          <button class="btn" @click="leaveOpen = false">취소</button>
-          <span style="flex: 1" />
-          <button class="btn danger" @click="leave(false)">저장 안 하고 나가기</button>
-          <button class="btn primary" @click="leave(true)">저장하고 나가기</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <p v-else class="muted loading">불러오는 중…</p>

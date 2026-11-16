@@ -46,15 +46,15 @@ describe('파생 엣지', () => {
 })
 
 describe('템플릿·복제', () => {
-  it('슬롯 구조를 유지하고 진행도·횟수를 0으로 리셋한다 (FR-80, FR-81)', () => {
+  it('슬롯 구조를 유지하고 진행도를 0으로 리셋한다 (FR-80, FR-81)', () => {
     let d = build(['A', 'B'], [['a1', 'b1'], ['a2', N], [N, 'b3']])
-    d = updateNode(d, 'a1', { progress: 100, count: 5, tags: ['x'] }).data
+    d = updateNode(d, 'a1', { progress: 100, tags: ['x'] }).data
     d = setLinkFilter(d, 'a1', ['lane-B']).data
     const copy = cloneBoardData(d, '복제본')
     assertInvariants(copy)
     expect(copy.board.id).not.toBe(d.board.id)
     expect(grid(copy)).toEqual(grid(d))
-    expect(copy.nodes.every((n) => n.progress === 0 && n.count === 0)).toBe(true)
+    expect(copy.nodes.every((n) => n.progress === 0)).toBe(true)
     const a1 = copy.nodes.find((n) => n.name === 'a1')!
     expect(a1.tags).toEqual(['x'])
     // 링크 필터의 제외 레인이 새 레인 ID로 다시 매핑된다

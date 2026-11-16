@@ -150,3 +150,33 @@ export function setNodeLabel(data: BoardData, nodeId: string, groupId: string, t
   else delete node.labels
   return { data: d }
 }
+
+/**
+ * 그룹 순서를 한 칸 옮긴다 (delta: -1 = 위로, 1 = 아래로).
+ * 순서가 앞선(번호가 작은) 그룹일수록 그래프에서 위에 그려지고, 카드의 입력 줄도 이 순서를 따른다.
+ */
+export function moveLabelGroup(data: BoardData, groupId: string, delta: -1 | 1): OpResult {
+  const d = draft(data)
+  const groups = editableGroups(d)
+  const from = groups.findIndex((g) => g.id === groupId)
+  if (from < 0) throw new DomainError('invalid-argument', '라벨 그룹을 찾을 수 없습니다.')
+  const to = from + delta
+  if (to < 0 || to >= groups.length) return { data }
+  const [group] = groups.splice(from, 1)
+  groups.splice(to, 0, group)
+  return { data: d }
+}
+
+/** 모든 그룹의 글꼴·스타일·크기·색을 기본값으로 되돌린다. 그룹, 이름, 위치, 순서, 입력한 글자는 그대로 둔다. */
+export function resetLabelGroupStyles(data: BoardData): OpResult {
+  const d = draft(data)
+  for (const group of editableGroups(d)) {
+    delete group.font
+    delete group.bold
+    delete group.italic
+    delete group.underline
+    delete group.size
+    delete group.color
+  }
+  return { data: d }
+}

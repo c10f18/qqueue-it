@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cloneBoardData, setGraphStyle, setLaneColor, setListStyle, setPercentMode, updateNode } from './index'
+import { cleanLegacy, cloneBoardData, setGraphStyle, setLaneColor, setListStyle, setPercentMode, updateNode } from './index'
 import { build } from './testUtils'
 
 describe('색·모양 설정', () => {
@@ -31,16 +31,16 @@ describe('색·모양 설정', () => {
   it('그래프 설정: 일부만 바꾸면 나머지는 유지되고, undefined는 기본값으로 되돌린다', () => {
     let d = build(['A'], [['a']])
     d = setGraphStyle(d, { direction: 'up-right', doneMark: 'x', edgeWidth: 3 }).data
-    d = setGraphStyle(d, { edgeColor: '#00000000', showProgress: false }).data
+    d = setGraphStyle(d, { edgeColor: '#00000000', showBoardName: true }).data
     expect(d.board.settings.graph).toEqual({
       direction: 'up-right',
       doneMark: 'x',
       edgeWidth: 3,
       edgeColor: '#00000000',
-      showProgress: false,
+      showBoardName: true,
     })
     d = setGraphStyle(d, { direction: undefined, doneMark: undefined }).data
-    expect(d.board.settings.graph).toEqual({ edgeWidth: 3, edgeColor: '#00000000', showProgress: false })
+    expect(d.board.settings.graph).toEqual({ edgeWidth: 3, edgeColor: '#00000000', showBoardName: true })
   })
 
   it('선 두께는 0.5~8로 제한되고, 잘못된 색은 거부한다', () => {
@@ -74,6 +74,17 @@ describe('색·모양 설정', () => {
     expect(cloneBoardData(d, '복제').board.settings.percent).toBe(true)
     d = setPercentMode(d, false).data
     expect('percent' in d.board.settings).toBe(false)
+  })
+
+  it('예전 데이터의 안 쓰는 항목(횟수, 슬롯 번호 옵션, 그래프 진행률 옵션)을 걷어 낸다', () => {
+    const d = build(['A'], [['a']])
+    const old = JSON.parse(JSON.stringify(d))
+    old.board.settings.showSlotNumbers = true
+    old.board.settings.graph = { showProgress: false, nodeSize: 20 }
+    old.nodes[0].count = 3
+    const cleaned = cleanLegacy(old)
+    expect(cleaned.board.settings).toEqual({ graph: { nodeSize: 20 } })
+    expect('count' in cleaned.nodes[0]).toBe(false)
   })
 
   it('복제하면 레인 색·노드 색/사진·그래프 설정이 함께 복제된다', () => {

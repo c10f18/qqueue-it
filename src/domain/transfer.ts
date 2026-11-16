@@ -1,6 +1,7 @@
 // JSON 내보내기·가져오기. 가져온 보드는 항상 새 보드로 만든다(기존 보드를 덮어쓰지 않는다).
 
 import { DomainError, uid } from './core'
+import { cleanLegacy } from './migrate'
 import { MAX_LANES } from './types'
 import type { BoardData, Lane, TaskNode, Template } from './types'
 
@@ -78,7 +79,6 @@ export function importBoardData(raw: unknown): BoardData {
       laneId,
       tags: Array.isArray(n.tags) ? n.tags.filter((t): t is string => typeof t === 'string') : [],
       progress: Number.isFinite(progress) ? Math.min(100, Math.max(0, Math.round(progress))) : 0,
-      count: Number.isFinite(Number(n.count)) ? Number(n.count) : 0,
       visible: n.visible !== false,
       linkFilter: {
         touched: filter.touched === true,
@@ -89,12 +89,12 @@ export function importBoardData(raw: unknown): BoardData {
   })
 
   const settings = isObject(board.settings) ? structuredClone(board.settings) : {}
-  return {
+  const result: BoardData = {
     board: {
       id: boardId,
       name: board.name.trim() || '가져온 보드',
       slotOrder: [...slotIds.values()],
-      settings: { ...settings, showSlotNumbers: true } as BoardData['board']['settings'],
+      settings: settings as BoardData['board']['settings'],
       createdAt: typeof board.createdAt === 'number' ? board.createdAt : now,
       updatedAt: typeof board.updatedAt === 'number' ? board.updatedAt : now,
     },
@@ -102,6 +102,7 @@ export function importBoardData(raw: unknown): BoardData {
     slots: [...slotIds.values()].map((id) => ({ id, boardId })),
     nodes,
   }
+  return cleanLegacy(result)
 }
 
 // ── 전체 백업: 모든 보드와 템플릿을 파일 하나로 ─────────────────

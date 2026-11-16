@@ -244,8 +244,8 @@ function draw() {
   const edgeHead = st.edgeHead ?? 'arrow'
   const edgeHeadSize = st.edgeHeadSize ?? GRAPH_RANGES.edgeHeadSize.default
   const NODE_R = nodeR.value
-  // 보드가 백분율을 쓰지 않으면 진행률(링·% 글자)은 그리지 않는다.
-  const showProgress = percentMode.value && (st.showProgress ?? true)
+  // 보드가 백분율을 쓸 때만 진행률(링·% 글자)을 그린다.
+  const showProgress = percentMode.value
 
   const project = makeProjector(view.value, w, h)
   const { nodes, pos, heads, colorOf, edges } = layout.value
@@ -285,7 +285,8 @@ function draw() {
   // 노드: 먼 것부터 그려 가까운 것이 위에 오게 한다
   const order = [...nodes].sort((x, y) => proj.get(y.id)!.depth - proj.get(x.id)!.depth)
   const labelOk = showLabels.value && nodes.length <= 400
-  const groups = labelGroupsOf(props.data)
+  // 순서가 앞선 그룹이 위에 오도록 뒤에서부터 그린다.
+  const groups = [...labelGroupsOf(props.data)].reverse()
   for (const n of order) {
     const p = proj.get(n.id)!
     const r = NODE_R * p.scale
@@ -449,8 +450,8 @@ function toSvg(): string {
   const edgeWidth = st.edgeWidth ?? 1.5
   const edgeHead = st.edgeHead ?? 'arrow'
   const headSize = st.edgeHeadSize ?? GRAPH_RANGES.edgeHeadSize.default
-  // 보드가 백분율을 쓰지 않으면 진행률(링·% 글자)은 그리지 않는다.
-  const showProgress = percentMode.value && (st.showProgress ?? true)
+  // 보드가 백분율을 쓸 때만 진행률(링·% 글자)을 그린다.
+  const showProgress = percentMode.value
   const R = nodeR.value
 
   const project = makeProjector(view.value, w, h)
@@ -512,7 +513,8 @@ function toSvg(): string {
 
   const order = [...nodes].sort((x, y) => proj.get(y.id)!.depth - proj.get(x.id)!.depth)
   const labelOk = showLabels.value && nodes.length <= 400
-  const groups = labelGroupsOf(props.data)
+  // 순서가 앞선 그룹이 위에 오도록 뒤에서부터 그린다.
+  const groups = [...labelGroupsOf(props.data)].reverse()
   order.forEach((n, i) => {
     const p = proj.get(n.id)!
     const r = R * p.scale

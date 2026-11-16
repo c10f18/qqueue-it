@@ -66,26 +66,9 @@ export const useBoardStore = defineStore('board', () => {
     return saveQueue
   }
 
-  // 수정 모드에서는 자동 저장을 끄고, 사용자가 "저장"을 눌러야 저장한다.
-  // 그 밖의 화면(보기 모드 등)에서는 바꾸는 즉시 저장한다.
-  const autosave = ref(true)
-  /** 아직 저장하지 않은 변경이 있는지 */
-  const dirty = ref(false)
-
+  // 모든 변경은 바로 저장한다. 실수는 되돌리기(Ctrl+Z)로 바로잡는다.
   function commit(data: BoardData) {
-    if (autosave.value) void persist(data)
-    else dirty.value = true
-  }
-  /** 저장하지 않은 변경을 저장한다. */
-  function save(): Promise<void> {
-    if (!dirty.value || !current.value) return saveQueue
-    dirty.value = false
-    return persist(current.value)
-  }
-  /** 자동 저장을 켜고 끈다. 켤 때 밀린 변경이 있으면 저장한다. */
-  function setAutosave(on: boolean) {
-    autosave.value = on
-    if (on) void save()
+    void persist(data)
   }
   /** 수정 모드에서 "뷰 저장"을 눌렀을 때(view) 또는 저장한 뷰를 지울 때(null) 부른다. */
   function setCamera(view: GraphView | null) {
@@ -115,10 +98,21 @@ export const useBoardStore = defineStore('board', () => {
       await repo.listTemplates(),
     )
   }
-  /** 백업 파일의 보드·템플릿을 지금 있는 것에 더한다(덮어쓰지 않는다). 더한 개수를 돌려준다. */
-  async function restoreBackup(raw: unknown): Promise<{ boards: number; templates: number }> {
+  /**
+   * 복구: 백업 파일의 보드·템플릿을 넣는다. 넣은 개수를 돌려준다.
+   * replace가 true면 지금 있는 보드·템플릿을 모두 지운 뒤에 넣고, 아니면 지금 있는 것에 더한다.
+   * 파일이 잘못됐으면 아무것도 지우기 전에 오류를 낸다.
+   */
+  async function restoreBackup(raw: unknown, replace = false): Promise<{ boards: number; templates: number }> {
     const { boards: newBoards, templates: newTemplates } = importBackup(raw)
     await saveQueue
+    if (replace) {
+      for (const b of await repo.listBoards()) await repo.deleteBoard(b.id)
+      for (const t of await repo.listTemplates()) await repo.deleteTemplate(t.id)
+      histories.clear()
+      current.value = null
+      syncHistoryState(undefined)
+    }
     for (const b of newBoards) await repo.saveBoard(b)
     for (const t of newTemplates) await repo.saveTemplate(t)
     await refreshBoards()
@@ -126,41 +120,9 @@ export const useBoardStore = defineStore('board', () => {
     return { boards: newBoards.length, templates: newTemplates.length }
   }
 
-  /**
-   * 보드 이름 변경: 수정 모드에서도 "저장"을 기다리지 않고 이름만 바로 저장한다.
-   * 다른 저장 안 된 변경은 그대로 저장 안 된 상태로 남는다.
-   */
+  /** 보드 이름 변경 */
   function renameCurrent(name: string) {
-    const before = current.value
-    if (!before) return
-    const wasDirty = dirty.value
     apply((d) => renameBoardOp(d, name))
-    const after = current.value
-    if (!after || after === before || autosave.value) return
-    saveQueue = saveQueue
-      .then(() => repo.renameBoard(after.board.id, after.board.name))
-      .catch((e) => {
-        console.error(e)
-        error.value = '저장에 실패했습니다. 브라우저 저장소를 확인해 주세요.'
-      })
-    // 이름만 바꾼 것이면 저장할 것이 남지 않는다.
-    if (!wasDirty) dirty.value = false
-  }
-
-  /** 저장하지 않은 변경을 버리고 마지막으로 저장한 상태로 되돌린다. 되돌리기 기록도 비운다. */
-  async function discard() {
-    const id = current.value?.board.id
-    if (!id) return
-    dirty.value = false
-    gesture = null
-    await saveQueue
-    const data = await repo.loadBoard(id)
-    if (!data) return
-    current.value = data
-    camera.value = data.board.settings.graph?.view ?? null
-    const h = { stack: [data], cursor: 0 }
-    histories.set(id, h)
-    syncHistoryState(h)
   }
 
   function syncHistoryState(h: History | undefined) {
@@ -225,7 +187,6 @@ export const useBoardStore = defineStore('board', () => {
     await repo.deleteBoard(boardId)
     histories.delete(boardId)
     if (current.value?.board.id === boardId) {
-      dirty.value = false
       current.value = null
       syncHistoryState(undefined)
     }
@@ -240,7 +201,6 @@ export const useBoardStore = defineStore('board', () => {
       histories.delete(id)
     }
     if (current.value && boardIds.includes(current.value.board.id)) {
-      dirty.value = false
       current.value = null
       syncHistoryState(undefined)
     }
@@ -251,8 +211,6 @@ export const useBoardStore = defineStore('board', () => {
     if (current.value?.board.id === boardId) return true
     loading.value = true
     try {
-      // 다른 보드로 넘어가기 전에 밀린 변경은 저장해 둔다.
-      await save()
       await saveQueue
       const data = await repo.loadBoard(boardId)
       if (!data) {
@@ -275,8 +233,8 @@ export const useBoardStore = defineStore('board', () => {
   }
 
   function closeBoard() {
-    // 저장하지 않은 변경이 남아 있으면 잃지 않도록 저장하고 닫는다.
-    void save()
+    // 끌던 동작이 끝나기 전에 닫히면 그때까지의 변경을 저장한다.
+    if (gesture && current.value) void persist(current.value)
     gesture = null
     current.value = null
     syncHistoryState(undefined)
@@ -365,7 +323,6 @@ export const useBoardStore = defineStore('board', () => {
     deleteBoards,
     openBoard,
     closeBoard,
-    dirty,
     exportData,
     importBoard,
     renameCurrent,
@@ -373,9 +330,6 @@ export const useBoardStore = defineStore('board', () => {
     restoreBackup,
     camera,
     setCamera,
-    save,
-    setAutosave,
-    discard,
     apply,
     endGesture,
     undo,

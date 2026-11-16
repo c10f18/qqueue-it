@@ -4,6 +4,8 @@ import {
   cloneBoardData,
   labelAngle,
   labelGroupsOf,
+  moveLabelGroup,
+  resetLabelGroupStyles,
   removeLabelGroup,
   setGraphStyle,
   setNodeLabel,
@@ -101,6 +103,28 @@ describe('노드 라벨 그룹', () => {
     d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: 'Nanum Pen Script' }).data
     expect(labelGroupsOf(d)[0].font).toBe('Nanum Pen Script')
     expect(() => updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: "x'; drop" })).toThrow(/글꼴/)
+  })
+
+  it('그룹 순서를 위아래로 옮긴다 (끝에서는 그대로)', () => {
+    let d = build(['A'], [['a']])
+    const b = addLabelGroup(d)
+    const c = addLabelGroup(b.data)
+    d = c.data
+    const ids = () => labelGroupsOf(d).map((g) => g.id)
+    expect(ids()).toEqual([NAME_LABEL_GROUP_ID, b.id, c.id])
+    d = moveLabelGroup(d, c.id!, -1).data
+    expect(ids()).toEqual([NAME_LABEL_GROUP_ID, c.id, b.id])
+    d = moveLabelGroup(d, NAME_LABEL_GROUP_ID, 1).data
+    expect(ids()).toEqual([c.id, NAME_LABEL_GROUP_ID, b.id])
+    const same = moveLabelGroup(d, c.id!, -1).data
+    expect(same).toBe(d)
+  })
+
+  it('글꼴 기본값으로: 스타일만 되돌리고 그룹·위치는 유지한다', () => {
+    let d = build(['A'], [['a']])
+    d = updateLabelGroup(d, NAME_LABEL_GROUP_ID, { font: 'serif', bold: true, size: 20, color: '#112233', position: 'up' }).data
+    d = resetLabelGroupStyles(d).data
+    expect(labelGroupsOf(d)[0]).toEqual({ id: NAME_LABEL_GROUP_ID, name: '이름', position: 'up' })
   })
 
   it('빈 글자를 넣으면 라벨이 지워진다', () => {

@@ -1,7 +1,8 @@
 export * from './types'
+export { cleanLegacy } from './migrate'
 export { DomainError, sortedLanes, slotIndex, cellNode } from './core'
 export type { DomainErrorCode } from './core'
-export { createBoardData, renameBoard, setShowSlotNumbers, setGraphStyle, setListStyle, setPercentMode } from './board'
+export { createBoardData, renameBoard, setGraphStyle, setListStyle, setPercentMode } from './board'
 export { addLane, renameLane, setLaneColor, toggleLaneActive, reorderLane, deleteLane } from './lanes'
 export type { DeleteLaneMode } from './lanes'
 export {
@@ -14,6 +15,7 @@ export {
   normalizeTags,
 } from './nodes'
 export type { NodeFields, NodePatch } from './nodes'
+export { moveLabelGroup, resetLabelGroupStyles } from './labels'
 export { NAME_LABEL_GROUP_NAME, labelGroupsOf, addLabelGroup, updateLabelGroup, removeLabelGroup, setNodeLabel } from './labels'
 export type { LabelGroupPatch } from './labels'
 export { exportBoard, importBoardData, exportBackup, importBackup, EXPORT_FORMAT, BACKUP_FORMAT } from './transfer'

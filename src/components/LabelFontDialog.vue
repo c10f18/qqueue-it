@@ -147,7 +147,7 @@ watch(
 .font-pop {
   position: fixed;
   top: 72px;
-  right: 372px;
+  right: 412px;
   z-index: 45;
   width: 290px;
   max-height: calc(100dvh - 88px);

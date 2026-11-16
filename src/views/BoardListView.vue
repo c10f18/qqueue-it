@@ -81,11 +81,22 @@ async function backup() {
   saveBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `qqueue-backup-${stamp}.json`)
   say(`보드 ${file.boards.length}개와 템플릿 ${file.templates.length}개를 백업 파일로 내보냈습니다.`)
 }
+// 복구: 대화상자에서 옵션을 고른 뒤 파일을 고른다.
+const restoreOpen = ref(false)
+/** 기존 데이터 전체 삭제 후 복구 (기본: 꺼짐 = 지금 목록에 더하기) */
+const restoreReplace = ref(false)
+function openRestore() {
+  pageMenuOpen.value = false
+  restoreReplace.value = false
+  restoreOpen.value = true
+}
 async function onRestoreFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
+  const replace = restoreReplace.value
+  restoreOpen.value = false
   try {
     let raw: unknown
     try {
@@ -93,10 +104,13 @@ async function onRestoreFile(e: Event) {
     } catch {
       throw new DomainError('invalid-argument', '가져올 수 없는 파일입니다: JSON 형식이 아닙니다.')
     }
-    const added = await store.restoreBackup(raw)
-    say(`보드 ${added.boards}개${added.templates ? `와 템플릿 ${added.templates}개` : ''}를 추가했습니다.`)
+    const added = await store.restoreBackup(raw, replace)
+    selected.value = new Set()
+    selecting.value = false
+    const what = `보드 ${added.boards}개${added.templates ? `와 템플릿 ${added.templates}개` : ''}`
+    say(replace ? `기존 데이터를 모두 지우고 ${what}를 복구했습니다.` : `${what}를 복구해 목록에 더했습니다.`)
   } catch (err) {
-    store.error = err instanceof Error ? err.message : '가져오지 못했습니다.'
+    store.error = err instanceof Error ? err.message : '복구하지 못했습니다.'
   }
 }
 
@@ -237,10 +251,10 @@ function fmt(ms: number) {
         </button>
         <div v-if="pageMenuOpen" class="pop page-pop" role="menu">
           <button role="menuitem" :disabled="store.boards.length === 0 && store.templates.length === 0" @click="backup">
-            전체 백업 <span class="muted">모든 보드·템플릿을 파일로</span>
+            백업 <span class="muted">모든 보드·템플릿을 파일로</span>
           </button>
-          <button role="menuitem" @click="((pageMenuOpen = false), restoreInput?.click())">
-            백업에서 가져오기 <span class="muted">지금 목록에 추가</span>
+          <button role="menuitem" @click="openRestore">
+            복구 <span class="muted">백업 파일에서 되살리기</span>
           </button>
         </div>
         <input ref="restoreInput" type="file" accept=".json,application/json" hidden @change="onRestoreFile" />
@@ -395,6 +409,30 @@ function fmt(ms: number) {
       </ul>
     </section>
 
+    <div v-if="restoreOpen" class="overlay" @pointerdown.self="restoreOpen = false">
+      <div class="dialog" role="dialog" aria-label="복구">
+        <h2>복구</h2>
+        <p class="muted">백업 파일(.json)의 보드와 템플릿을 되살립니다.</p>
+        <label class="replace-row">
+          <input v-model="restoreReplace" type="checkbox" />
+          기존 데이터 전체 삭제 후 복구
+        </label>
+        <p class="muted small-note" :class="{ warn: restoreReplace }">
+          {{
+            restoreReplace
+              ? `지금 있는 보드 ${store.boards.length}개와 템플릿 ${store.templates.length}개를 모두 지운 뒤 복구합니다. 되돌릴 수 없습니다.`
+              : '지금 있는 보드는 그대로 두고, 백업의 보드를 목록에 더합니다.'
+          }}
+        </p>
+        <div class="actions">
+          <button type="button" class="btn" @click="restoreOpen = false">취소</button>
+          <button type="button" class="btn" :class="restoreReplace ? 'danger' : 'primary'" @click="restoreInput?.click()">
+            파일 선택 후 복구
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="dialog" class="overlay" @pointerdown.self="dialog = null">
       <form class="dialog" @submit.prevent="confirmDialog">
         <template v-if="dialog.kind === 'delete'">
@@ -540,6 +578,20 @@ function fmt(ms: number) {
 .meta .dates {
   margin-left: auto;
   text-align: right;
+}
+.replace-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0 4px;
+  cursor: pointer;
+}
+.small-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+.small-note.warn {
+  color: var(--danger);
 }
 .sort {
   display: inline-flex;

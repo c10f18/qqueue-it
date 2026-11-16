@@ -27,7 +27,6 @@ export interface NodeFields {
 
 export type NodePatch = NodeFields & {
   progress?: number
-  count?: number
   visible?: boolean
 }
 
@@ -60,7 +59,6 @@ function buildNode(d: BoardData, slotId: string, laneId: string, fields: NodeFie
     image: fields.image,
     tags: normalizeTags(fields.tags ?? []),
     progress: 0,
-    count: 0,
     visible: true,
     deadline: fields.deadline,
     linkFilter: { touched: false, excludedLaneIds: [] },
@@ -119,10 +117,6 @@ export function updateNode(data: BoardData, nodeId: string, patch: NodePatch): O
   if ('deadline' in patch) node.deadline = patch.deadline
   if (patch.tags !== undefined) node.tags = normalizeTags(patch.tags)
   if (patch.progress !== undefined) node.progress = clampProgress(patch.progress)
-  if (patch.count !== undefined) {
-    if (!Number.isFinite(patch.count)) throw new DomainError('invalid-argument', '횟수는 숫자여야 합니다.')
-    node.count = Math.max(0, Math.round(patch.count))
-  }
   if (patch.visible !== undefined) node.visible = patch.visible
   return { data: d }
 }
@@ -146,7 +140,6 @@ export function duplicateNode(data: BoardData, nodeId: string): OpResult {
     slotId,
     name: `${src.name} (복사)`,
     progress: 0,
-    count: 0,
     createdAt: Date.now(),
   }
   d.nodes.push(copy)
