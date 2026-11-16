@@ -86,7 +86,7 @@ function commitTyping() {
       :aria-pressed="done"
       @click="toggleDone"
     >
-      ✓
+      <AppIcon name="check" :size="12" />
     </button>
   </span>
 </template>
@@ -165,6 +165,8 @@ function commitTyping() {
   border: 1px solid var(--border);
   border-radius: 50%;
   background: transparent;
+  display: inline-grid;
+  place-items: center;
   color: transparent;
   cursor: pointer;
   line-height: 1;

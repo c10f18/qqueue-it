@@ -56,7 +56,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
 
 <template>
   <div ref="root" class="head" :class="{ dragging }">
-    <span class="grip" title="끌어서 열 순서 변경" @pointerdown="emit('dragStart', $event)">⠿</span>
+    <span class="grip" title="끌어서 열 순서 변경" @pointerdown="emit('dragStart', $event)"><AppIcon name="grip" /></span>
 
     <input
       v-if="editing"
@@ -70,18 +70,26 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
     />
     <span v-else class="name" :title="`${lane.name} (클릭하여 이름 수정)`" @click="beginEdit">{{ lane.name }}</span>
 
-    <button class="icon-btn" :title="lane.active ? '숨기기' : '보이기'" @click="emit('toggle')">
-      {{ lane.active ? '👁' : '🚫' }}
+    <button class="icon-btn sm" :title="lane.active ? '숨기기' : '보이기'" :aria-label="lane.active ? '숨기기' : '보이기'" @click="emit('toggle')">
+      <AppIcon :name="lane.active ? 'eye' : 'eye-off'" />
     </button>
-    <button class="icon-btn" aria-label="카테고리 메뉴" @click="((colorOpen = false), (menuOpen = !menuOpen))">⋯</button>
+    <button
+      class="icon-btn sm"
+      title="카테고리 메뉴"
+      aria-label="카테고리 메뉴"
+      :aria-expanded="menuOpen"
+      @click="((colorOpen = false), (menuOpen = !menuOpen))"
+    >
+      <AppIcon name="more" />
+    </button>
 
-    <div v-if="menuOpen" class="dropdown" role="menu">
-      <button role="menuitem" @click="((menuOpen = false), (colorOpen = true))">🎨 색 변경</button>
+    <div v-if="menuOpen" class="menu dropdown" role="menu">
+      <button role="menuitem" @click="((menuOpen = false), (colorOpen = true))"><AppIcon name="palette" /> 색 변경</button>
       <button
         role="menuitem"
         @click="((menuOpen = false), emit('resetProgress'))"
       >
-        ↺ 진행도 리셋
+        <AppIcon name="reset" /> 진행도 리셋
       </button>
       <button
         role="menuitem"
@@ -90,7 +98,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
         :title="canDelete ? '' : '마지막 카테고리는 삭제할 수 없습니다'"
         @click="((menuOpen = false), emit('remove'))"
       >
-        🗑 삭제
+        <AppIcon name="trash" /> 삭제
       </button>
     </div>
 
@@ -140,42 +148,13 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
   border-radius: 6px;
   background: var(--surface);
 }
-.icon-btn {
-  flex: none;
-  padding: 0 4px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
+/* 메뉴와 색 선택 칸의 위치 (메뉴 모양은 공통 .menu) */
 .dropdown {
   position: absolute;
   top: 100%;
   right: 0;
   z-index: 20;
-  min-width: 150px;
   margin-top: 4px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.dropdown button {
-  display: block;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.dropdown button:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-.dropdown button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 .danger {
   color: var(--danger);
@@ -185,11 +164,12 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocDown, true))
   gap: 8px;
   width: 250px;
   padding: 10px;
-}
-.dropdown.color-pop button.btn {
-  width: auto;
-  justify-self: end;
   border: 1px solid var(--border);
-  text-align: center;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.color-pop .btn {
+  justify-self: end;
 }
 </style>

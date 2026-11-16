@@ -135,45 +135,45 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
         />
         <button
           type="button"
-          class="btn ghost small"
+          class="icon-btn sm"
           :disabled="gi === 0"
           title="위로 (더 위에 그리기)"
           :aria-label="`${g.name} 그룹을 위로`"
           @click="store.apply((d) => moveLabelGroup(d, g.id, -1))"
         >
-          ↑
+          <AppIcon name="up" :size="14" />
         </button>
         <button
           type="button"
-          class="btn ghost small"
+          class="icon-btn sm"
           :disabled="gi === groups.length - 1"
           title="아래로 (더 아래에 그리기)"
           :aria-label="`${g.name} 그룹을 아래로`"
           @click="store.apply((d) => moveLabelGroup(d, g.id, 1))"
         >
-          ↓
+          <AppIcon name="down" :size="14" />
         </button>
         <button
           type="button"
-          class="btn ghost small"
+          class="icon-btn sm"
           role="switch"
           :aria-checked="g.visible !== false"
           :title="g.visible === false ? '그래프에 보이기' : '그래프에서 숨기기'"
           :aria-label="`${g.name} 그래프에 표시`"
           @click="patch(g.id, { visible: g.visible === false })"
         >
-          {{ g.visible === false ? '🚫' : '👁' }}
+          <AppIcon :name="g.visible === false ? 'eye-off' : 'eye'" :size="14" />
         </button>
         <span v-if="g.id === NAME_LABEL_GROUP_ID" class="muted hint">고정</span>
         <button
           v-else
           type="button"
-          class="btn ghost small"
+          class="icon-btn sm"
           title="그룹 삭제 (입력한 라벨도 지워집니다)"
           :aria-label="`${g.name} 그룹 삭제`"
           @click="store.apply((d) => removeLabelGroup(d, g.id))"
         >
-          ✕
+          <AppIcon name="close" :size="14" />
         </button>
       </div>
 

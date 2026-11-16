@@ -167,3 +167,121 @@ textarea {
   justify-content: flex-end;
   margin-top: 16px;
 }
+
+/* ── 아이콘 버튼: 테두리 없는 정사각 버튼. 아이콘은 무채색(글자색)이다 ── */
+.icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-decoration: none;
+}
+.icon-btn:hover:not(:disabled),
+.icon-btn[aria-expanded='true'] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.icon-btn.sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+/* ── 메뉴: 버튼 옆에 뜨는 목록. 위치는 쓰는 곳에서 정한다 ── */
+.menu {
+  z-index: 30;
+  display: grid;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.menu > button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu > button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.menu > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.menu > button.danger {
+  color: var(--danger);
+}
+/* 항목 오른쪽의 보조 설명 */
+.menu .hint {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.menu .menu-title {
+  margin-top: 4px;
+  padding: 8px 10px 2px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.menu > hr {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* ── 묶음 버튼: 여러 버튼을 한 덩어리로 ── */
+.btn-group {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.btn-group > button {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.btn-group > button + button {
+  border-left: 1px solid var(--border);
+}
+.btn-group > button:hover:not(.on):not(:disabled) {
+  background: var(--surface-2);
+}
+.btn-group > button.on {
+  background: var(--accent);
+  color: #fff;
+}

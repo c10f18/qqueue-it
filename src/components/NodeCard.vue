@@ -89,7 +89,7 @@ function onPointerDown(e: PointerEvent) {
     @contextmenu.prevent="emit('menu', $event)"
   >
     <div class="row">
-      <span class="grip" title="끌어서 이동" aria-hidden="true">⠿</span>
+      <span class="grip" title="끌어서 이동" aria-hidden="true"><AppIcon name="grip" /></span>
       <span
         v-if="node.image || node.color"
         class="thumb"
@@ -108,14 +108,14 @@ function onPointerDown(e: PointerEvent) {
         @blur="commit"
       />
       <span v-else class="name" :title="node.name">{{ node.name }}</span>
-      <span v-if="!node.visible" class="muted" title="뷰·export에서 숨김">🙈</span>
+      <span v-if="!node.visible" class="muted hidden-mark" title="보기·내보내기에서 숨김"><AppIcon name="eye-off" :size="14" /></span>
       <button
         class="check"
         :class="{ on: isCompleted(node) }"
         :title="isCompleted(node) ? '완료 취소' : '완료'"
         @click.stop="emit('toggleDone')"
       >
-        ✓
+        <AppIcon name="check" :size="12" />
       </button>
     </div>
 
@@ -179,7 +179,12 @@ function onPointerDown(e: PointerEvent) {
   gap: 6px;
   min-width: 0;
 }
+.hidden-mark {
+  display: inline-grid;
+  flex: none;
+}
 .grip {
+  display: inline-grid;
   flex: none;
   color: var(--text-dim);
   cursor: grab;

@@ -65,7 +65,7 @@ function setAlpha(e: Event) {
       />
       <label class="sw custom" title="직접 선택">
         <input type="color" :value="rgb" @change="pick(($event.target as HTMLInputElement).value)" />
-        🎨
+        <AppIcon name="palette" :size="14" />
       </label>
     </div>
     <label class="alpha">

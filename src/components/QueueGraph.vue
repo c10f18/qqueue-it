@@ -406,60 +406,71 @@ watch(
       @dblclick="resetView"
     />
 
+    <!-- 도구 줄: 끌기 동작 / 확대 / 뷰 리셋(+메뉴) / 뷰 저장 / 라벨 표시 -->
     <div class="tools">
-      <button :class="{ on: mode === 'pan' }" title="이동 (드래그)" @click="mode = 'pan'">✥</button>
-      <button :class="{ on: mode === 'rotate' }" title="회전 (드래그, Shift 또는 우클릭 드래그도 가능)" @click="mode = 'rotate'">⟳</button>
-      <button title="확대" @click="zoomBy(1.25)">＋</button>
-      <button title="축소" @click="zoomBy(0.8)">－</button>
-      <button class="zoom" title="지금 확대 배율. 누르면 100%(설정한 크기 그대로)로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
-      <!-- 뷰 리셋 + ▾ 메뉴(뷰 초기화, 저장된 뷰 지우기). 우클릭으로도 메뉴가 열린다. -->
+      <div class="btn-group" role="group" aria-label="끌기 동작">
+        <button :class="{ on: mode === 'pan' }" title="이동 (끌기)" aria-label="이동" :aria-pressed="mode === 'pan'" @click="mode = 'pan'">
+          <AppIcon name="move" />
+        </button>
+        <button
+          :class="{ on: mode === 'rotate' }"
+          title="회전 (끌기. Shift 또는 우클릭 끌기도 가능)"
+          aria-label="회전"
+          :aria-pressed="mode === 'rotate'"
+          @click="mode = 'rotate'"
+        >
+          <AppIcon name="rotate" />
+        </button>
+      </div>
+
+      <div class="btn-group" role="group" aria-label="확대">
+        <button title="축소" aria-label="축소" @click="zoomBy(0.8)"><AppIcon name="minus" /></button>
+        <button class="zoom" title="지금 확대 배율. 누르면 100%(설정한 크기 그대로)로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
+        <button title="확대" aria-label="확대" @click="zoomBy(1.25)"><AppIcon name="plus" /></button>
+      </div>
+
+      <!-- 뷰 리셋 + 메뉴(뷰 초기화, 저장된 뷰 지우기). 우클릭으로도 메뉴가 열린다. -->
       <div ref="viewMenu" class="split">
-        <button
-          class="main"
-          :title="camera ? '뷰 리셋: 저장된 뷰로 돌아가기 (더블클릭)' : '뷰 리셋: 화면에 맞추기 (더블클릭). 저장된 뷰가 없습니다'"
-          aria-label="뷰 리셋"
-          @click="resetView"
-          @contextmenu.prevent="viewMenuOpen = true"
-        >
-          ⛶
-        </button>
-        <button
-          class="caret"
-          title="뷰 메뉴"
-          aria-label="뷰 메뉴"
-          aria-haspopup="true"
-          :aria-expanded="viewMenuOpen"
-          @click="viewMenuOpen = !viewMenuOpen"
-        >
-          ▾
-        </button>
-        <div v-if="viewMenuOpen" class="view-menu" role="menu">
-          <button role="menuitem" @click="initView">
-            뷰 초기화 <span class="muted">기본 시점(화면에 맞춤)</span>
+        <div class="btn-group">
+          <button
+            :title="camera ? '뷰 리셋: 저장된 뷰로 돌아가기 (더블클릭)' : '뷰 리셋: 화면에 맞추기 (더블클릭). 저장된 뷰가 없습니다'"
+            aria-label="뷰 리셋"
+            @click="resetView"
+            @contextmenu.prevent="viewMenuOpen = true"
+          >
+            <AppIcon name="fit" />
           </button>
+          <button class="caret" title="뷰 메뉴" aria-label="뷰 메뉴" aria-haspopup="true" :aria-expanded="viewMenuOpen" @click="viewMenuOpen = !viewMenuOpen">
+            <AppIcon name="chevron-down" :size="12" />
+          </button>
+        </div>
+        <div v-if="viewMenuOpen" class="menu view-menu" role="menu">
+          <button role="menuitem" @click="initView">뷰 초기화 <span class="hint">기본 시점(화면에 맞춤)</span></button>
           <button v-if="editable" role="menuitem" :disabled="!camera" @click="clearSavedView">
-            저장된 뷰 지우기 <span class="muted">{{ camera ? '보기 모드도 기본 시점으로' : '저장된 뷰 없음' }}</span>
+            저장된 뷰 지우기 <span class="hint">{{ camera ? '보기 모드도 기본 시점으로' : '저장된 뷰 없음' }}</span>
           </button>
         </div>
       </div>
-      <button
-        v-if="editable"
-        class="snap"
-        :class="{ on: atSavedView }"
-        :title="
-          atSavedView
-            ? '지금 시점이 저장된 뷰입니다 (보기 모드에서 이대로 보입니다)'
-            : '뷰 저장: 지금의 확대·이동·회전을 보기 모드에서 보여 줄 뷰로 저장'
-        "
-        @click="saveView"
-      >
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-          <path d="M2 5.5h2.2l1-1.5h5.6l1 1.5H14v7H2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
-          <circle cx="8" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3" />
-        </svg>
-        뷰 저장
-      </button>
-      <button :class="{ on: showLabels }" title="이름 표시" @click="showLabels = !showLabels">Aa</button>
+
+      <div v-if="editable" class="btn-group">
+        <button
+          :class="{ on: atSavedView }"
+          :title="
+            atSavedView
+              ? '지금 시점이 저장된 뷰입니다 (보기 모드에서 이대로 보입니다)'
+              : '뷰 저장: 지금의 확대·이동·회전을 보기 모드에서 보여 줄 뷰로 저장'
+          "
+          @click="saveView"
+        >
+          <AppIcon name="camera" /> 뷰 저장
+        </button>
+      </div>
+
+      <div class="btn-group">
+        <button :class="{ on: showLabels }" title="라벨 표시" aria-label="라벨 표시" :aria-pressed="showLabels" @click="showLabels = !showLabels">
+          <AppIcon name="label" />
+        </button>
+      </div>
     </div>
 
     <p v-if="layout.nodes.length === 0" class="empty muted">표시할 작업이 없습니다</p>
@@ -510,84 +521,33 @@ canvas.rotate {
   left: 8px;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   max-width: calc(100% - 16px);
 }
-.tools button {
+/* 묶음(.btn-group)의 버튼을 도구 줄 크기로 맞춘다 */
+.tools .btn-group > button {
   min-width: 30px;
   height: 30px;
-  padding: 0 6px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  cursor: pointer;
-}
-.tools .snap {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
+  padding: 0 7px;
   font-size: 12px;
 }
-/* 리셋 버튼과 ▾를 한 덩어리로 붙인다 */
+.tools .zoom {
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
+}
+.tools .caret {
+  min-width: 20px;
+  padding: 0 3px;
+}
 .split {
   position: relative;
   display: inline-flex;
-}
-.tools .split .main {
-  border-radius: 8px 0 0 8px;
-}
-.tools .split .caret {
-  min-width: 18px;
-  padding: 0 3px;
-  border-left: 0;
-  border-radius: 0 8px 8px 0;
-  font-size: 10px;
 }
 .view-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 5;
-  display: grid;
   min-width: 250px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.tools .view-menu button {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  align-items: baseline;
-  height: auto;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  font-size: 13px;
-  text-align: left;
-}
-.tools .view-menu button:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-.tools .view-menu button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.view-menu .muted {
-  font-size: 11px;
-}
-.tools .zoom {
-  min-width: 48px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.tools button.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
 }
 .empty {
   position: absolute;

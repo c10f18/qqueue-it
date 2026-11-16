@@ -237,7 +237,7 @@ function fmt(ms: number) {
       <span class="spacer" />
       <div class="page-menu">
         <button
-          class="menu-btn"
+          class="icon-btn"
           type="button"
           title="메뉴"
           aria-label="메뉴"
@@ -245,16 +245,14 @@ function fmt(ms: number) {
           :aria-expanded="pageMenuOpen"
           @click="pageMenuOpen = !pageMenuOpen"
         >
-          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
-            <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-          </svg>
+          <AppIcon name="menu" :size="18" />
         </button>
-        <div v-if="pageMenuOpen" class="pop page-pop" role="menu">
+        <div v-if="pageMenuOpen" class="menu pop page-pop" role="menu">
           <button role="menuitem" :disabled="store.boards.length === 0 && store.templates.length === 0" @click="backup">
-            백업 <span class="muted">모든 보드·템플릿을 파일로</span>
+            <AppIcon name="download" /> 백업 <span class="hint">모든 보드·템플릿을 파일로</span>
           </button>
           <button role="menuitem" @click="openRestore">
-            복구 <span class="muted">백업 파일에서 되살리기</span>
+            <AppIcon name="upload" /> 복구 <span class="hint">백업 파일에서 되살리기</span>
           </button>
         </div>
         <input ref="restoreInput" type="file" accept=".json,application/json" hidden @change="onRestoreFile" />
@@ -335,7 +333,7 @@ function fmt(ms: number) {
               :title="sortKey === x.key ? `${x.label} ${sortHint} (누르면 ${sortDesc ? '오름차순' : '내림차순'}으로)` : `${x.label} 순으로 정렬`"
               @click="clickSort(x.key)"
             >
-              {{ x.label }}<span v-if="sortKey === x.key" class="dir" :aria-label="sortHint">{{ sortDesc ? '↓' : '↑' }}</span>
+              {{ x.label }}<AppIcon v-if="sortKey === x.key" class="dir" :name="sortDesc ? 'down' : 'up'" :size="12" :aria-label="sortHint" />
             </button>
           </div>
           <button class="btn small" @click="toggleSelecting">보드 삭제</button>
@@ -365,24 +363,24 @@ function fmt(ms: number) {
 
           <div v-if="!selecting" class="more-wrap">
             <button
-              class="more"
+              class="icon-btn"
               type="button"
               aria-label="보드 메뉴"
               :aria-expanded="menuId === b.id"
               @click="menuId = menuId === b.id ? null : b.id"
             >
-              ⋯
+              <AppIcon name="more" />
             </button>
-            <div v-if="menuId === b.id" class="pop" role="menu">
-              <button role="menuitem" @click="navigate({ name: 'edit', boardId: b.id })"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 1.7a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L5.6 13.4l-3.7.8.8-3.7z" /><path d="M9.8 3.2l3 3" /></svg>수정</button>
-              <button role="menuitem" @click="clone(b.id)"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" /></svg>복제</button>
+            <div v-if="menuId === b.id" class="menu pop" role="menu">
+              <button role="menuitem" @click="navigate({ name: 'edit', boardId: b.id })"><AppIcon name="pen" />수정</button>
+              <button role="menuitem" @click="clone(b.id)"><AppIcon name="copy" />복제</button>
               <button
                 role="menuitem"
                 @click="((menuId = null), (dialog = { kind: 'template', boardId: b.id, name: `${b.name} 템플릿` }))"
               >
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z" /><path d="M9 1.8V5.2h3.4M6 8.5h4.5M6 11h4.5" /></svg>템플릿 저장
+                <AppIcon name="doc" />템플릿 저장
               </button>
-              <button role="menuitem" class="danger" @click="askDeleteOne(b.id, b.name)"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.8 4.2h10.4M6.3 4.2V2.6h3.4v1.6M4.2 4.2l.6 9.2h6.4l.6-9.2M6.7 6.8v4M9.3 6.8v4" /></svg>삭제</button>
+              <button role="menuitem" class="danger" @click="askDeleteOne(b.id, b.name)"><AppIcon name="trash" />삭제</button>
             </div>
           </div>
         </li>
@@ -534,36 +532,9 @@ function fmt(ms: number) {
   position: relative;
   flex: none;
 }
-.menu-btn {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-}
-.menu-btn:hover,
-.menu-btn[aria-expanded='true'] {
-  background: var(--surface-2);
-}
 .page-pop {
   min-width: 290px;
 }
-.page-pop button {
-  display: flex !important;
-  white-space: nowrap;
-  gap: 8px;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.page-pop button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.page-pop .muted,
 .dates {
   font-size: 12px;
 }
@@ -684,69 +655,11 @@ button.board:hover,
   position: relative;
   flex: none;
 }
-.more {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  font-size: 18px;
-  cursor: pointer;
-}
-.more:hover,
-.more[aria-expanded='true'] {
-  background: var(--surface-2);
-}
-/* 말풍선처럼 ⋯ 버튼 아래에 뜨는 메뉴 */
+/* 버튼 아래에 뜨는 메뉴의 위치 (모양은 공통 .menu) */
 .pop {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   right: 0;
-  z-index: 20;
-  min-width: 150px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.pop::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  right: 12px;
-  width: 10px;
-  height: 10px;
-  transform: rotate(45deg);
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-}
-.pop button {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-/* 메뉴 아이콘: 모두 같은 크기·같은 칸에 놓아 글자가 한 줄로 맞게 한다 */
-.pop .ico {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.pop button:hover {
-  background: var(--surface-2);
 }
 .danger {
   color: var(--danger);

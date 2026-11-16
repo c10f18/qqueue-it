@@ -105,7 +105,7 @@ const showNumbers = true
               :style="laneStyle(n.laneId)"
             />
           </span>
-          <span v-if="row.nodes.every(isCompleted)" class="ok" title="슬롯 완료">✓</span>
+          <span v-if="row.nodes.every(isCompleted)" class="ok" title="슬롯 완료"><AppIcon name="check" /></span>
         </li>
         <li v-else class="fold">⋯ 숨겨진 슬롯 {{ row.count }}개</li>
       </template>

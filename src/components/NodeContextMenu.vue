@@ -55,13 +55,13 @@ onUnmounted(() => {
 
 <template>
   <div ref="el" class="menu" :style="pos" role="menu" @contextmenu.prevent>
-    <button role="menuitem" @click="emit('addAbove')">⬆ 위에 추가</button>
-    <button role="menuitem" @click="emit('addBelow')">⬇ 아래에 추가</button>
-    <button role="menuitem" @click="emit('duplicate')">⧉ 복제</button>
-    <button role="menuitem" class="danger" @click="emit('remove')">🗑 삭제</button>
+    <button role="menuitem" @click="emit('addAbove')"><AppIcon name="up" /> 위에 추가</button>
+    <button role="menuitem" @click="emit('addBelow')"><AppIcon name="down" /> 아래에 추가</button>
+    <button role="menuitem" @click="emit('duplicate')"><AppIcon name="copy" /> 복제</button>
+    <button role="menuitem" class="danger" @click="emit('remove')"><AppIcon name="trash" /> 삭제</button>
     <hr />
     <button role="menuitem" class="has-sub" @click="submenu = !submenu">
-      🔗 링크 필터 <span class="arrow">{{ submenu ? '▾' : '▸' }}</span>
+      <AppIcon name="link" /> 링크 필터 <span class="hint"><AppIcon :name="submenu ? 'chevron-down' : 'chevron-right'" :size="12" /></span>
     </button>
     <div v-if="submenu" class="sub">
       <p class="muted hint">체크한 카테고리의 다음 노드에 연결</p>
@@ -78,37 +78,11 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* 모양은 공통 .menu, 여기서는 위치와 폭만 */
 .menu {
   position: fixed;
   z-index: 60;
   width: 210px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.menu > button {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.menu > button:hover {
-  background: var(--surface-2);
-}
-.danger {
-  color: var(--danger);
-}
-hr {
-  margin: 4px 0;
-  border: 0;
-  border-top: 1px solid var(--border);
 }
 .sub {
   display: grid;

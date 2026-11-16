@@ -23,7 +23,7 @@ watch(
   <div class="font-pop" role="dialog" :aria-label="`${group.name} 글꼴`">
     <div class="head">
       <h3>글꼴 — {{ group.name }}</h3>
-      <button type="button" class="btn ghost small" aria-label="글꼴 팝업 닫기" @click="emit('close')">✕</button>
+      <button type="button" class="icon-btn sm" title="닫기" aria-label="글꼴 팝업 닫기" @click="emit('close')"><AppIcon name="close" :size="14" /></button>
     </div>
 
     <div class="preview checker">

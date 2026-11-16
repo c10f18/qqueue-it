@@ -236,7 +236,7 @@ onUnmounted(() => {
 
   <div v-else-if="data" class="board-page">
     <div class="toolbar">
-      <a class="btn ghost" href="#/" title="보드 목록">←</a>
+      <a class="icon-btn" href="#/" title="보드 목록" aria-label="보드 목록"><AppIcon name="back" /></a>
 
       <input
         v-if="renaming"
@@ -260,41 +260,30 @@ onUnmounted(() => {
 
       <button
         v-if="mode === 'view'"
-        class="edit-btn"
+        class="icon-btn"
         title="수정 모드로 들어가기"
         aria-label="수정"
         @click="navigate({ name: 'edit', boardId })"
       >
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-          <path
-            d="M11.3 1.7a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1L5.6 13.4l-3.7.8.8-3.7z"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.4"
-            stroke-linejoin="round"
-          />
-          <path d="M9.8 3.2l3 3" stroke="currentColor" stroke-width="1.4" />
-        </svg>
+        <AppIcon name="pen" />
       </button>
       <span v-else class="chip mode-chip">수정 중</span>
 
       <template v-if="mode === 'view'">
         <span class="spacer" />
         <div class="menu-wrap">
-          <button class="menu-btn" title="메뉴" aria-label="메뉴" aria-haspopup="true" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">
-            <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
-              <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-            </svg>
+          <button class="icon-btn" title="메뉴" aria-label="메뉴" aria-haspopup="true" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">
+            <AppIcon name="menu" :size="18" />
           </button>
-          <div v-if="menuOpen" class="menu-pop" role="menu">
+          <div v-if="menuOpen" class="menu menu-pop" role="menu">
             <button role="menuitem" title="지정한 슬롯까지 한 번에 완료 처리" @click="((menuOpen = false), (bulkOpen = true))">일괄 진행…</button>
             <span class="menu-title">내보내기</span>
             <button v-for="x in EXPORTS" :key="x.kind" role="menuitem" @click="doExport(x.kind)">
-              {{ x.label }} <span class="muted">{{ x.hint }}</span>
+              {{ x.label }} <span class="hint">{{ x.hint }}</span>
             </button>
             <span class="menu-title">가져오기</span>
             <button role="menuitem" @click="((menuOpen = false), importInput?.click())">
-              JSON 파일… <span class="muted">새 보드로 추가</span>
+              JSON 파일… <span class="hint">새 보드로 추가</span>
             </button>
           </div>
           <input ref="importInput" type="file" accept=".json,application/json" hidden @change="onImportFile" />
@@ -302,10 +291,10 @@ onUnmounted(() => {
       </template>
 
       <template v-if="mode === 'edit'">
-        <button class="btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" @click="store.undo()">↶</button>
-        <button class="btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" @click="store.redo()">↷</button>
+        <button class="icon-btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기" @click="store.undo()"><AppIcon name="undo" /></button>
+        <button class="icon-btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행" @click="store.redo()"><AppIcon name="redo" /></button>
 
-        <button class="btn" data-panel-toggle title="테마·그래프(표시·정렬)·노드·라인·레이아웃 설정" @click="togglePanel('settings')">⚙ 설정</button>
+        <button class="btn" data-panel-toggle title="테마·그래프(표시·정렬)·노드·라인·레이아웃 설정" @click="togglePanel('settings')"><AppIcon name="settings" /> 설정</button>
 
         <span v-if="inactiveLanes.length" class="inactive">
           <span class="muted">숨긴 카테고리</span>
@@ -316,7 +305,7 @@ onUnmounted(() => {
             title="다시 보이기"
             @click="store.apply((d) => toggleLaneActive(d, l.id))"
           >
-            🚫 {{ l.name }}
+            <AppIcon name="eye-off" :size="12" /> {{ l.name }}
           </button>
         </span>
 
@@ -398,29 +387,6 @@ onUnmounted(() => {
 .title-input {
   width: 220px;
 }
-/* 펜 아이콘만 있는 테두리 없는 버튼 */
-.edit-btn,
-.menu-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-.edit-btn:hover,
-.menu-btn:hover,
-.menu-btn[aria-expanded='true'] {
-  background: var(--surface-2);
-  color: var(--text);
-}
-.menu-btn {
-  color: var(--text);
-}
 .menu-wrap {
   position: relative;
 }
@@ -428,41 +394,8 @@ onUnmounted(() => {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 30;
-  display: grid;
   min-width: 250px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
 }
-.menu-pop button {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.menu-pop button:hover {
-  background: var(--surface-2);
-}
-.menu-pop button .muted {
-  font-size: 12px;
-}
-.menu-title {
-  margin-top: 4px;
-  padding: 8px 10px 2px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-dim);
-}
-.edit-btn,
 .mode-chip {
   margin-right: 8px;
 }
