@@ -71,6 +71,11 @@ export function setGraphStyle(data: BoardData, patch: GraphStyle): OpResult {
   for (const key of ['doneColor', 'edgeColor', 'background'] as const) {
     if (key in patch) next[key] = normalizeColor(patch[key])
   }
+  if (next.doneImage !== undefined && !next.doneImage.startsWith('data:image/')) {
+    throw new DomainError('invalid-argument', '완료 표시 이미지는 이미지 파일이어야 합니다.')
+  }
+  // 이미지가 없는데 이미지 표시를 고른 상태로는 두지 않는다.
+  if (next.doneMark === 'image' && !next.doneImage) delete next.doneMark
   for (const key of Object.keys(GRAPH_RANGES) as GraphNumberKey[]) {
     const value = next[key]
     if (value === undefined) continue

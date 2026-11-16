@@ -19,7 +19,10 @@ const ICONS = {
   more: '<circle cx="3.5" cy="8" r="0.6" /><circle cx="8" cy="8" r="0.6" /><circle cx="12.5" cy="8" r="0.6" />',
   plus: '<path d="M8 3v10M3 8h10" />',
   minus: '<path d="M3 8h10" />',
-  check: '<path d="M3 8.5l3.2 3.2L13 4.8" />',
+  // 체크는 꺾이는 곳과 끝을 둥글리지 않은 직선으로 그린다.
+  check: '<path d="M3 8.3l3.3 3.3L13 4.6" stroke-linecap="square" stroke-linejoin="miter" />',
+  cross: '<path d="M4 4l8 8M12 4l-8 8" stroke-linecap="square" />',
+  image: '<rect x="2" y="2.500" width="12" height="11" rx="1.500" /><circle cx="5.800" cy="6.200" r="1.200" /><path d="M2.500 12l3.500-3.500 2.500 2.500 2-2 3 3" />',
   grip:
     '<circle cx="6" cy="4" r="0.6" /><circle cx="10" cy="4" r="0.6" /><circle cx="6" cy="8" r="0.6" /><circle cx="10" cy="8" r="0.6" /><circle cx="6" cy="12" r="0.6" /><circle cx="10" cy="12" r="0.6" />',
   eye: '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="2" />',

@@ -34,7 +34,7 @@ export type GraphDirection =
   | 'down-left'
   | 'left'
   | 'up-left'
-export type DoneMark = 'check' | 'x' | 'star' | 'dot' | 'none'
+export type DoneMark = 'check' | 'x' | 'star' | 'dot' | 'none' | 'image'
 export type EdgeHead = 'arrow' | 'open' | 'dot' | 'none'
 
 /** 큐 그래프 표시 설정. 비어 있는 항목은 기본값(테마 색)을 쓴다. 색은 '#rrggbb', '#rrggbbaa', 'transparent'. */
@@ -43,6 +43,8 @@ export interface GraphStyle {
   direction?: GraphDirection
   doneColor?: string
   doneMark?: DoneMark
+  /** 완료 표시로 쓸 사용자 이미지 (축소한 data URL). doneMark가 'image'일 때 쓴다. */
+  doneImage?: string
   edgeColor?: string
   edgeHead?: EdgeHead
   edgeWidth?: number

@@ -297,10 +297,13 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   flex: 1;
   min-width: 0;
 }
-/* 숨긴 그룹은 흐리게 보여 준다 (보이기 버튼은 또렷하게) */
+/* 숨긴 그룹은 흐리게 보여 준다 (윗줄의 버튼들은 또렷하게) */
 .group.off > :not(:first-child),
 .group.off .name,
-.group.off .order {
+.group.off .fixed-name {
+  opacity: 0.45;
+}
+.order {
   display: grid;
   flex: none;
   place-items: center;
@@ -311,9 +314,6 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   color: var(--text-dim);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-}
-.fixed-name {
-  opacity: 0.45;
 }
 .fixed-name {
   flex: 1;
@@ -328,17 +328,17 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 .pos-grid {
   display: grid;
   flex: none;
-  grid-template-columns: 20px 48px 20px;
-  grid-template-rows: 20px 48px 20px;
+  grid-template-columns: 13px 32px 13px;
+  grid-template-rows: 13px 32px 13px;
   place-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 .pos-grid button {
-  width: 20px;
-  height: 20px;
+  width: 13px;
+  height: 13px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 4px;
   background: var(--surface);
 }
 .pos-grid button {
@@ -351,9 +351,9 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 /* 각도 노브: 가운데 원이 노드, 바늘 끝의 점이 라벨 위치 */
 .knob {
   position: relative;
-  width: 48px;
-  height: 48px;
-  border: 2px solid var(--text-dim);
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--text-dim);
   border-radius: 50%;
   background: var(--surface-2);
   cursor: grab;
@@ -371,7 +371,7 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   left: 50%;
   bottom: 50%;
   width: 2px;
-  height: 20px;
+  height: 12px;
   margin-left: -1px;
   background: var(--accent);
   transform-origin: 50% 100%;
@@ -380,10 +380,10 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
 .needle::after {
   content: '';
   position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 10px;
-  height: 10px;
+  top: -3px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--accent);
 }
@@ -416,11 +416,15 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   background: var(--surface);
   outline: none;
 }
+/* 각도(왼쪽)와 글꼴 버튼(오른쪽)을 한 줄에 */
 .side {
-  display: grid;
+  display: flex;
   flex: 1;
-  min-width: 0;
+  flex-wrap: wrap;
   gap: 6px;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 0;
 }
 .size {
   display: grid;
@@ -434,7 +438,7 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  justify-self: start;
+  margin-left: auto;
   max-width: 100%;
   padding: 4px 8px;
   border: 1px solid var(--border);

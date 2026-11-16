@@ -87,6 +87,15 @@ describe('색·모양 설정', () => {
     expect('count' in cleaned.nodes[0]).toBe(false)
   })
 
+  it('완료 표시에 이미지를 쓸 수 있고, 이미지가 없으면 이미지 표시는 풀린다', () => {
+    let d = build(['A'], [['a']])
+    d = setGraphStyle(d, { doneMark: 'image', doneImage: 'data:image/png;base64,AAAA' }).data
+    expect(d.board.settings.graph).toEqual({ doneMark: 'image', doneImage: 'data:image/png;base64,AAAA' })
+    d = setGraphStyle(d, { doneImage: undefined }).data
+    expect(d.board.settings.graph).toEqual({})
+    expect(() => setGraphStyle(d, { doneImage: 'javascript:alert(1)' })).toThrow(/이미지/)
+  })
+
   it('복제하면 레인 색·노드 색/사진·그래프 설정이 함께 복제된다', () => {
     let d = build(['A'], [['a']])
     d = setLaneColor(d, 'lane-A', '#112233').data

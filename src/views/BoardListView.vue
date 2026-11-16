@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { navigate } from '../composables/useRoute'
-import { DomainError } from '../domain'
+import { importBackup } from '../domain'
 import { saveBlob } from '../export/download'
 import { useBoardStore } from '../stores/board'
 
@@ -81,30 +81,47 @@ async function backup() {
   saveBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `qqueue-backup-${stamp}.json`)
   say(`보드 ${file.boards.length}개와 템플릿 ${file.templates.length}개를 백업 파일로 내보냈습니다.`)
 }
-// 복구: 대화상자에서 옵션을 고른 뒤 파일을 고른다.
+// 복구: 파일을 먼저 고르면 바로 검사하고, 통과해야 복구할 수 있다.
 const restoreOpen = ref(false)
 /** 기존 데이터 전체 삭제 후 복구 (기본: 꺼짐 = 지금 목록에 더하기) */
 const restoreReplace = ref(false)
+type RestoreFile =
+  | { name: string; ok: true; raw: unknown; boards: number; templates: number }
+  | { name: string; ok: false; message: string }
+const restoreFile = ref<RestoreFile | null>(null)
 function openRestore() {
   pageMenuOpen.value = false
   restoreReplace.value = false
+  restoreFile.value = null
   restoreOpen.value = true
 }
+/** 파일을 고르면 내용을 읽어 복구할 수 있는 파일인지 검사한다. */
 async function onRestoreFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
-  const replace = restoreReplace.value
-  restoreOpen.value = false
   try {
     let raw: unknown
     try {
       raw = JSON.parse(await file.text())
     } catch {
-      throw new DomainError('invalid-argument', '가져올 수 없는 파일입니다: JSON 형식이 아닙니다.')
+      throw new Error('JSON 형식이 아닙니다.')
     }
-    const added = await store.restoreBackup(raw, replace)
+    const parsed = importBackup(raw)
+    restoreFile.value = { name: file.name, ok: true, raw, boards: parsed.boards.length, templates: parsed.templates.length }
+  } catch (err) {
+    const message = (err instanceof Error ? err.message : '읽을 수 없는 파일입니다.').replace(/^가져올 수 없는 파일입니다: /, '')
+    restoreFile.value = { name: file.name, ok: false, message }
+  }
+}
+async function doRestore() {
+  const file = restoreFile.value
+  if (!file?.ok) return
+  const replace = restoreReplace.value
+  restoreOpen.value = false
+  try {
+    const added = await store.restoreBackup(file.raw, replace)
     selected.value = new Set()
     selecting.value = false
     const what = `보드 ${added.boards}개${added.templates ? `와 템플릿 ${added.templates}개` : ''}`
@@ -254,6 +271,10 @@ function fmt(ms: number) {
           <button role="menuitem" @click="openRestore">
             <AppIcon name="upload" /> 복구 <span class="hint">백업 파일에서 되살리기</span>
           </button>
+          <hr />
+          <button role="menuitem" class="danger" :disabled="store.boards.length === 0" @click="((pageMenuOpen = false), selecting || toggleSelecting())">
+            <AppIcon name="trash" /> 보드 삭제 <span class="hint">골라서 또는 전부</span>
+          </button>
         </div>
         <input ref="restoreInput" type="file" accept=".json,application/json" hidden @change="onRestoreFile" />
       </div>
@@ -336,7 +357,6 @@ function fmt(ms: number) {
               {{ x.label }}<AppIcon v-if="sortKey === x.key" class="dir" :name="sortDesc ? 'down' : 'up'" :size="12" :aria-label="sortHint" />
             </button>
           </div>
-          <button class="btn small" @click="toggleSelecting">보드 삭제</button>
         </template>
       </div>
 
@@ -411,6 +431,33 @@ function fmt(ms: number) {
       <div class="dialog" role="dialog" aria-label="복구">
         <h2>복구</h2>
         <p class="muted">백업 파일(.json)의 보드와 템플릿을 되살립니다.</p>
+
+        <div class="file-row">
+          <button type="button" class="btn" @click="restoreInput?.click()">
+            <AppIcon name="upload" /> {{ restoreFile ? '다른 파일 선택' : '파일 선택' }}
+          </button>
+          <template v-if="restoreFile">
+            <span class="file-name" :title="restoreFile.name">{{ restoreFile.name }}</span>
+            <span
+              class="verdict"
+              :class="restoreFile.ok ? 'ok' : 'bad'"
+              role="img"
+              :aria-label="restoreFile.ok ? '검사 통과' : '검사 실패'"
+              :title="restoreFile.ok ? '검사 통과' : '검사 실패'"
+            >
+              <AppIcon :name="restoreFile.ok ? 'check' : 'cross'" :size="12" />
+            </span>
+          </template>
+          <span v-else class="muted">선택한 파일 없음</span>
+        </div>
+        <p v-if="restoreFile" class="small-note" :class="{ warn: !restoreFile.ok }" role="status">
+          {{
+            restoreFile.ok
+              ? `복구할 수 있는 파일입니다: 보드 ${restoreFile.boards}개, 템플릿 ${restoreFile.templates}개`
+              : `복구할 수 없는 파일입니다: ${restoreFile.message}`
+          }}
+        </p>
+
         <label class="replace-row">
           <input v-model="restoreReplace" type="checkbox" />
           기존 데이터 전체 삭제 후 복구
@@ -424,9 +471,7 @@ function fmt(ms: number) {
         </p>
         <div class="actions">
           <button type="button" class="btn" @click="restoreOpen = false">취소</button>
-          <button type="button" class="btn" :class="restoreReplace ? 'danger' : 'primary'" @click="restoreInput?.click()">
-            파일 선택 후 복구
-          </button>
+          <button type="button" class="btn" :class="restoreReplace ? 'danger' : 'primary'" :disabled="!restoreFile?.ok" @click="doRestore">복구</button>
         </div>
       </div>
     </div>
@@ -549,6 +594,34 @@ function fmt(ms: number) {
 .meta .dates {
   margin-left: auto;
   text-align: right;
+}
+.file-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0 4px;
+}
+.file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 검사 결과: 초록 동그라미 체크 / 빨간 동그라미 엑스 */
+.verdict {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #fff;
+}
+.verdict.ok {
+  background: var(--ok);
+}
+.verdict.bad {
+  background: var(--danger);
 }
 .replace-row {
   display: flex;

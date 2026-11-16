@@ -8,7 +8,8 @@ import { fontOption } from './labelFont'
 export type Shape =
   | { kind: 'circle'; x: number; y: number; r: number; fill?: string; stroke?: string; width?: number; opacity?: number }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: 'poly'; points: [number, number][]; closed: boolean; fill?: string; stroke?: string; width?: number }
+  /** sharp: 꺾이는 곳과 끝을 둥글리지 않는다 */
+  | { kind: 'poly'; points: [number, number][]; closed: boolean; fill?: string; stroke?: string; width?: number; sharp?: boolean }
   | { kind: 'arc'; x: number; y: number; r: number; from: number; to: number; stroke: string; width: number }
   /** 원 모양으로 잘라 넣는 사진 */
   | { kind: 'image'; src: string; x: number; y: number; r: number }
@@ -50,6 +51,8 @@ export interface SceneInput {
   nodeRadius: number
   doneColor?: string
   doneMark: DoneMark
+  /** 완료 표시로 쓸 이미지 (doneMark가 'image'일 때) */
+  doneImage?: string
   edgeColor?: string
   edgeWidth: number
   edgeHead: EdgeHead
@@ -62,7 +65,8 @@ export interface SceneInput {
 }
 
 const SYSTEM_FONT = 'system-ui, sans-serif'
-const DONE_MARKS: Record<DoneMark, string> = { check: '✓', x: '✕', star: '★', dot: '●', none: '' }
+// 체크와 엑스는 글자가 아니라 직선으로 그린다(글꼴에 따라 둥글게 보이지 않도록). 나머지는 글자.
+const DONE_GLYPHS: Partial<Record<DoneMark, string>> = { star: '★', dot: '●' }
 /** 이 수를 넘으면 라벨은 그리지 않는다 (노드가 아주 많을 때 가볍게) */
 const MAX_LABELED_NODES = 400
 
@@ -102,7 +106,6 @@ export function buildScene(input: SceneInput): Shape[] {
   const shapes: Shape[] = []
   const R = input.nodeRadius
   const doneColor = input.doneColor ?? theme.ok
-  const doneMark = DONE_MARKS[input.doneMark]
   const edgeColor = input.edgeColor ?? theme.border
 
   for (const head of input.heads) {
@@ -163,9 +166,42 @@ export function buildScene(input: SceneInput): Shape[] {
       })
     }
 
-    // 가운데 글자: 완료 표시 또는 아이콘
+    // 가운데: 완료 표시(직선 체크·엑스, 사용자 이미지, 글자) 또는 노드 아이콘
     if (r > 7) {
-      const glyph = done ? doneMark : n.image ? '' : (n.icon ?? '')
+      const markColor = isSeeThrough(doneColor) && !n.image ? theme.text : '#fff'
+      const stroke = Math.max(1.5, r * 0.15)
+      if (done && input.doneMark === 'check') {
+        shapes.push({
+          kind: 'poly',
+          points: [
+            [p.x - r * 0.42, p.y + r * 0.03],
+            [p.x - r * 0.12, p.y + r * 0.33],
+            [p.x + r * 0.44, p.y - r * 0.3],
+          ],
+          closed: false,
+          stroke: markColor,
+          width: stroke,
+          sharp: true,
+        })
+      } else if (done && input.doneMark === 'x') {
+        const k = r * 0.34
+        for (const sign of [1, -1]) {
+          shapes.push({
+            kind: 'poly',
+            points: [
+              [p.x - k, p.y - k * sign],
+              [p.x + k, p.y + k * sign],
+            ],
+            closed: false,
+            stroke: markColor,
+            width: stroke,
+            sharp: true,
+          })
+        }
+      } else if (done && input.doneMark === 'image' && input.doneImage) {
+        shapes.push({ kind: 'image', src: input.doneImage, x: p.x, y: p.y, r: r * 0.66 })
+      }
+      const glyph = done ? (DONE_GLYPHS[input.doneMark] ?? '') : n.image ? '' : (n.icon ?? '')
       if (glyph) {
         shapes.push({
           kind: 'text',
@@ -174,7 +210,7 @@ export function buildScene(input: SceneInput): Shape[] {
           text: glyph,
           family: SYSTEM_FONT,
           size: Math.round(r * 0.95),
-          fill: done ? (isSeeThrough(doneColor) && !n.image ? theme.text : '#fff') : theme.text,
+          fill: done ? markColor : theme.text,
           align: 'center',
           baseline: 'middle',
         })
@@ -264,7 +300,13 @@ export function renderCanvas(ctx: CanvasRenderingContext2D, shapes: Shape[], ima
         if (s.stroke && s.stroke !== 'transparent') {
           ctx.lineWidth = s.width ?? 1
           ctx.strokeStyle = s.stroke
+          if (s.sharp) {
+            ctx.lineCap = 'butt'
+            ctx.lineJoin = 'miter'
+          }
           ctx.stroke()
+          ctx.lineCap = 'round'
+          ctx.lineJoin = 'round'
         }
         break
       case 'arc':
@@ -340,7 +382,7 @@ export function renderSvg(shapes: Shape[]): string {
       case 'poly': {
         const d = s.points.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('') + (s.closed ? 'Z' : '')
         out.push(
-          `<path d="${d}" ${svgPaint('fill', s.fill)}${s.stroke ? ` ${svgPaint('stroke', s.stroke)} stroke-width="${s.width ?? 1}" stroke-linecap="round" stroke-linejoin="round"` : ''}/>`,
+          `<path d="${d}" ${svgPaint('fill', s.fill)}${s.stroke ? ` ${svgPaint('stroke', s.stroke)} stroke-width="${s.width ?? 1}" stroke-linecap="${s.sharp ? 'butt' : 'round'}" stroke-linejoin="${s.sharp ? 'miter' : 'round'}"` : ''}/>`,
         )
         break
       }

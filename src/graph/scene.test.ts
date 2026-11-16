@@ -57,6 +57,17 @@ describe('그릴 목록', () => {
     expect(texts(shapes)).toContain('★')
   })
 
+  it('체크·엑스 완료 표시는 글자가 아니라 직선으로 그리고, 이미지 표시는 사진으로 넣는다', () => {
+    let d = build(['A'], [['a']])
+    d = updateNode(d, 'a', { progress: 100 }).data
+    const check = buildScene(input(d, { doneMark: 'check' }))
+    expect(check.filter((s) => s.kind === 'poly' && s.sharp)).toHaveLength(1)
+    expect(texts(check)).not.toContain('✓')
+    expect(buildScene(input(d, { doneMark: 'x' })).filter((s) => s.kind === 'poly' && s.sharp)).toHaveLength(2)
+    const image = buildScene(input(d, { doneMark: 'image', doneImage: 'data:image/png;base64,AAAA' }))
+    expect(image.some((s) => s.kind === 'image' && s.src === 'data:image/png;base64,AAAA')).toBe(true)
+  })
+
   it('라벨은 순서가 앞선 그룹이 나중에(위에) 그려지고, 숨긴 그룹은 빠진다', () => {
     let d = build(['A'], [['a']])
     const g2 = addLabelGroup(d)

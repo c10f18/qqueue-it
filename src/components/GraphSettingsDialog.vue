@@ -8,6 +8,7 @@ const tab = ref<SettingsTab>('theme')
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { fileToThumbnail } from '../composables/imageFile'
 import {
   GRAPH_RANGES,
   resetLabelGroupStyles,
@@ -63,7 +64,7 @@ function resetTab() {
     set({ background: undefined, showBoardName: undefined, slotGap: undefined, laneGap: undefined })
     if (percentMode.value) store.apply((d) => setPercentMode(d, false))
     emit('aligned')
-  } else if (tab.value === 'node') set({ nodeSize: undefined, doneColor: undefined, doneMark: undefined })
+  } else if (tab.value === 'node') set({ nodeSize: undefined, doneColor: undefined, doneMark: undefined, doneImage: undefined })
   else if (tab.value === 'label') store.apply((d) => resetLabelGroupStyles(d))
   else if (tab.value === 'line') set({ edgeColor: undefined, edgeHead: undefined, edgeHeadSize: undefined, edgeWidth: undefined })
   else emit('update:layout', defaultLayout())
@@ -93,13 +94,34 @@ function setNum(key: GraphNumberKey, e: Event) {
   set({ [key]: Number((e.target as HTMLInputElement).value) })
 }
 
-const MARKS: { value: DoneMark; glyph: string; label: string }[] = [
-  { value: 'check', glyph: '✓', label: '체크' },
-  { value: 'x', glyph: '✕', label: '엑스' },
+const MARKS: { value: Exclude<DoneMark, 'image'>; glyph?: string; icon?: 'check' | 'cross'; label: string }[] = [
+  { value: 'check', icon: 'check', label: '체크' },
+  { value: 'x', icon: 'cross', label: '엑스' },
   { value: 'star', glyph: '★', label: '별' },
   { value: 'dot', glyph: '●', label: '점' },
-  { value: 'none', glyph: '', label: '표시 없음' },
+  { value: 'none', label: '표시 없음' },
 ]
+// 완료 표시로 쓸 이미지: 정사각형으로 잘라 192px로 줄여 보드에 저장한다.
+const DONE_IMAGE_HINT = '정사각형 이미지 권장, 64×64px 이상 (가운데를 잘라 192×192px로 맞춰 저장)'
+const doneImageInput = ref<HTMLInputElement | null>(null)
+const doneImageError = ref('')
+async function onDoneImage(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    doneImageError.value = ''
+    set({ doneMark: 'image', doneImage: await fileToThumbnail(file) })
+  } catch (err) {
+    doneImageError.value = err instanceof Error ? err.message : '이미지를 첨부할 수 없습니다.'
+  }
+}
+/** 이미지 칸: 이미지가 있고 아직 고르지 않았으면 고르고, 그 밖에는 파일을 고르게 한다. */
+function clickDoneImage() {
+  if (style.value.doneImage && style.value.doneMark !== 'image') set({ doneMark: 'image' })
+  else doneImageInput.value?.click()
+}
 const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
   { value: 'arrow', glyph: '▶', label: '채운 화살표' },
   { value: 'open', glyph: '＞', label: '열린 화살표' },
@@ -230,9 +252,25 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
               :aria-label="m.label"
               @click="set({ doneMark: m.value })"
             >
-              <span class="done-dot">{{ m.glyph }}</span>
+              <span class="done-dot"><AppIcon v-if="m.icon" :name="m.icon" :size="14" /><template v-else>{{ m.glyph }}</template></span>
             </button>
+            <button
+              type="button"
+              role="radio"
+              class="slot"
+              :class="{ on: style.doneMark === 'image' }"
+              :aria-checked="style.doneMark === 'image'"
+              :title="style.doneImage ? `내 이미지 (고른 상태에서 다시 누르면 바꾸기). ${DONE_IMAGE_HINT}` : `이미지 추가. ${DONE_IMAGE_HINT}`"
+              :aria-label="style.doneImage ? '내 이미지' : '이미지 추가'"
+              @click="clickDoneImage"
+            >
+              <span v-if="style.doneImage" class="done-dot image" :style="{ backgroundImage: `url(${style.doneImage})` }" />
+              <AppIcon v-else name="image" />
+            </button>
+            <input ref="doneImageInput" type="file" accept="image/*" hidden @change="onDoneImage" />
           </div>
+          <span class="muted note">이미지: {{ DONE_IMAGE_HINT }}</span>
+          <span v-if="doneImageError" class="err">{{ doneImageError }}</span>
         </div>
         </section>
 
@@ -480,6 +518,17 @@ input[type='range'] {
   color: #fff;
   font-size: 13px;
   line-height: 1;
+}
+.done-dot.image {
+  background-size: cover;
+  background-position: center;
+}
+.note {
+  font-size: 11px;
+}
+.err {
+  color: var(--danger);
+  font-size: 12px;
 }
 /* 켜고 끄는 슬라이드 토글 */
 .switch-row.gap {

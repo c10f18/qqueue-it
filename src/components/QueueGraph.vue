@@ -176,6 +176,7 @@ function scene(selected: string | null): Shape[] {
     nodeRadius: nodeR.value,
     doneColor: st.doneColor,
     doneMark: st.doneMark ?? 'check',
+    doneImage: st.doneImage,
     edgeColor: st.edgeColor,
     edgeWidth: st.edgeWidth ?? GRAPH_RANGES.edgeWidth.default,
     edgeHead: st.edgeHead ?? 'arrow',
