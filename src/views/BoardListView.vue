@@ -343,7 +343,7 @@ function fmt(ms: number) {
           <button class="board" type="button" @click="openBoard(b.id)">
             <strong>{{ b.name }}</strong>
             <span class="meta">
-              <span class="muted">작업 {{ b.doneCount }}/{{ b.nodeCount }} 완료</span>
+              <span class="muted" :title="`작업 ${b.nodeCount}개 중 ${b.doneCount}개 완료`">작업 {{ b.doneCount }}/{{ b.nodeCount }}</span>
               <span class="muted dates">생성 {{ fmt(b.createdAt) }} · 수정 {{ fmt(b.updatedAt) }}</span>
             </span>
             <span class="bar"><span :style="{ width: percent(b) + '%' }" /></span>
