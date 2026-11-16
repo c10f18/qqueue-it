@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { addLabelGroup, exportBoard, importBoardData, setGraphStyle, setLinkFilter, setNodeLabel, updateNode } from './index'
+import {
+  addLabelGroup,
+  createTemplateFromBoard,
+  exportBackup,
+  exportBoard,
+  importBackup,
+  importBoardData,
+  setGraphStyle,
+  setLinkFilter,
+  setNodeLabel,
+  updateNode,
+} from './index'
 import { assertInvariants, build } from './testUtils'
 
 describe('JSON 내보내기·가져오기', () => {
@@ -33,6 +44,29 @@ describe('JSON 내보내기·가져오기', () => {
   it('감싸지 않은 보드 데이터도 받는다', () => {
     const d = build(['A'], [['a']])
     expect(importBoardData(JSON.parse(JSON.stringify(d))).nodes[0].name).toBe('a')
+  })
+
+  it('전체 백업: 모든 보드와 템플릿을 담고, 복원하면 새 id로 추가된다', () => {
+    const a = build(['A'], [['a']])
+    const b = build(['B'], [['b'], ['c']])
+    const template = createTemplateFromBoard(a, '틀')
+    const file = JSON.parse(JSON.stringify(exportBackup([a, b], [template])))
+    expect(file.format).toBe('qqueue-it/backup')
+
+    const restored = importBackup(file)
+    expect(restored.boards.map((x) => x.nodes.length)).toEqual([1, 2])
+    expect(restored.boards[0].board.id).not.toBe(a.board.id)
+    expect(restored.templates).toHaveLength(1)
+    expect(restored.templates[0].name).toBe('틀')
+    expect(restored.templates[0].id).not.toBe(template.id)
+  })
+
+  it('백업 복원은 보드 하나짜리 파일도 받고, 잘못된 보드가 섞이면 전체를 거부한다', () => {
+    const a = build(['A'], [['a']])
+    expect(importBackup(JSON.parse(JSON.stringify(exportBoard(a)))).boards).toHaveLength(1)
+    const file = JSON.parse(JSON.stringify(exportBackup([a, a], [])))
+    file.boards[1].nodes[0].laneId = 'nope'
+    expect(() => importBackup(file)).toThrow(/가져올 수 없는/)
   })
 
   it('형식이 맞지 않으면 거부한다', () => {

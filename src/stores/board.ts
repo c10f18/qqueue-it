@@ -3,6 +3,9 @@ import { computed, ref, shallowRef } from 'vue'
 import { createDexieRepo, type BoardRepo, type BoardSummary } from '../db/repo'
 import {
   cloneBoardData,
+  exportBackup,
+  importBackup,
+  type BackupFile,
   createBoardData,
   createBoardFromTemplate,
   createTemplateFromBoard,
@@ -99,6 +102,27 @@ export const useBoardStore = defineStore('board', () => {
     await persist(data)
     await refreshBoards()
     return data.board.id
+  }
+
+  /** 전체 백업: 저장된 모든 보드와 템플릿을 파일 내용으로 만든다. */
+  async function backupAll(): Promise<BackupFile> {
+    await saveQueue
+    const list = await repo.listBoards()
+    const all = await Promise.all(list.map((b) => repo.loadBoard(b.id)))
+    return exportBackup(
+      all.filter((b): b is BoardData => !!b),
+      await repo.listTemplates(),
+    )
+  }
+  /** 백업 파일의 보드·템플릿을 지금 있는 것에 더한다(덮어쓰지 않는다). 더한 개수를 돌려준다. */
+  async function restoreBackup(raw: unknown): Promise<{ boards: number; templates: number }> {
+    const { boards: newBoards, templates: newTemplates } = importBackup(raw)
+    await saveQueue
+    for (const b of newBoards) await repo.saveBoard(b)
+    for (const t of newTemplates) await repo.saveTemplate(t)
+    await refreshBoards()
+    await refreshTemplates()
+    return { boards: newBoards.length, templates: newTemplates.length }
   }
 
   /** 저장하지 않은 변경을 버리고 마지막으로 저장한 상태로 되돌린다. 되돌리기 기록도 비운다. */
@@ -322,6 +346,8 @@ export const useBoardStore = defineStore('board', () => {
     dirty,
     exportData,
     importBoard,
+    backupAll,
+    restoreBackup,
     camera,
     setCamera,
     save,

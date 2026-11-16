@@ -1,22 +1,103 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { navigate } from '../composables/useRoute'
+import { DomainError } from '../domain'
+import { saveBlob } from '../export/download'
 import { useBoardStore } from '../stores/board'
 
 const store = useBoardStore()
-const newName = ref('')
 const notice = ref('')
+
+// ── 검색·정렬 ────────────────────────────────────────────
+const query = ref('')
+type SortKey = 'updatedAt' | 'createdAt' | 'name'
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'updatedAt', label: '수정일' },
+  { key: 'createdAt', label: '생성일' },
+  { key: 'name', label: '이름' },
+]
+const SORT_PREF = 'qqueue.boardSort'
+// 기본: 최근에 수정한 보드가 위로
+const sortKey = ref<SortKey>('updatedAt')
+const sortDesc = ref(true)
+try {
+  const saved = JSON.parse(localStorage.getItem(SORT_PREF) ?? 'null')
+  if (saved && SORTS.some((x) => x.key === saved.key)) {
+    sortKey.value = saved.key
+    sortDesc.value = saved.desc !== false
+  }
+} catch {
+  // 기억해 둔 값이 없거나 못 읽으면 기본 정렬로 시작한다.
+}
+function setSort(key: SortKey) {
+  // 날짜는 최신순, 이름은 가나다순이 기본 방향
+  sortKey.value = key
+  sortDesc.value = key !== 'name'
+}
+function rememberSort() {
+  try {
+    localStorage.setItem(SORT_PREF, JSON.stringify({ key: sortKey.value, desc: sortDesc.value }))
+  } catch {
+    // 기억하지 못해도 동작에는 지장이 없다.
+  }
+}
+const sortHint = computed(() => {
+  if (sortKey.value === 'name') return sortDesc.value ? '이름 역순' : '이름 가나다순'
+  return sortDesc.value ? '최신순' : '오래된 순'
+})
+
+const shownBoards = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  const list = q ? store.boards.filter((b) => b.name.toLowerCase().includes(q)) : [...store.boards]
+  const key = sortKey.value
+  list.sort((a, b) => (key === 'name' ? a.name.localeCompare(b.name, 'ko') : a[key] - b[key]))
+  return sortDesc.value ? list.reverse() : list
+})
+
+// ── 페이지 메뉴: 전체 백업·복원 ─────────────────────────────
+const pageMenuOpen = ref(false)
+const restoreInput = ref<HTMLInputElement | null>(null)
+async function backup() {
+  pageMenuOpen.value = false
+  const file = await store.backupAll()
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`
+  saveBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `qqueue-backup-${stamp}.json`)
+  say(`보드 ${file.boards.length}개와 템플릿 ${file.templates.length}개를 백업 파일로 내보냈습니다.`)
+}
+async function onRestoreFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    let raw: unknown
+    try {
+      raw = JSON.parse(await file.text())
+    } catch {
+      throw new DomainError('invalid-argument', '가져올 수 없는 파일입니다: JSON 형식이 아닙니다.')
+    }
+    const added = await store.restoreBackup(raw)
+    say(`보드 ${added.boards}개${added.templates ? `와 템플릿 ${added.templates}개` : ''}를 추가했습니다.`)
+  } catch (err) {
+    store.error = err instanceof Error ? err.message : '가져오지 못했습니다.'
+  }
+}
 
 // ── ⋯ 메뉴 ───────────────────────────────────────────────
 const menuId = ref<string | null>(null)
 function onDocDown(e: PointerEvent) {
-  if (!(e.target as HTMLElement).closest('.more-wrap')) menuId.value = null
+  const target = e.target as HTMLElement
+  if (!target.closest('.more-wrap')) menuId.value = null
+  if (!target.closest('.page-menu')) pageMenuOpen.value = false
 }
 
 // ── 선택 삭제 모드 ───────────────────────────────────────
 const selecting = ref(false)
 const selected = ref(new Set<string>())
-const allSelected = computed(() => store.boards.length > 0 && selected.value.size === store.boards.length)
+// 전체 선택은 지금 목록에 보이는(검색된) 보드를 대상으로 한다.
+const allSelected = computed(() => shownBoards.value.length > 0 && shownBoards.value.every((b) => selected.value.has(b.id)))
 
 function toggleSelecting() {
   selecting.value = !selecting.value
@@ -30,7 +111,7 @@ function toggleOne(id: string) {
   selected.value = next
 }
 function toggleAll() {
-  selected.value = allSelected.value ? new Set() : new Set(store.boards.map((b) => b.id))
+  selected.value = allSelected.value ? new Set() : new Set(shownBoards.value.map((b) => b.id))
 }
 
 // ── 확인/이름 입력 대화상자 ──────────────────────────────
@@ -84,9 +165,9 @@ onMounted(() => {
 })
 onUnmounted(() => document.removeEventListener('pointerdown', onDocDown))
 
+// 새 보드는 기본 이름으로 만들고 바로 수정 화면으로 간다(이름은 거기서 제목을 눌러 바꾼다).
 async function create() {
-  const id = await store.createBoard(newName.value || '새 보드')
-  newName.value = ''
+  const id = await store.createBoard('새 보드')
   navigate({ name: 'edit', boardId: id })
 }
 
@@ -110,22 +191,55 @@ function say(msg: string) {
 }
 
 function fmt(ms: number) {
-  return new Date(ms).toLocaleDateString('ko-KR')
+  const d = new Date(ms)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 </script>
 
 <template>
   <main class="list-page">
-    <form class="new" @submit.prevent="create">
-      <input v-model="newName" class="input" placeholder="새 보드 이름 (예: 2026 하반기 공부)" maxlength="60" />
-      <button class="btn primary" type="submit">+ 보드 만들기</button>
-    </form>
+    <div class="top">
+      <input
+        v-model="query"
+        class="input search"
+        type="search"
+        placeholder="보드 이름으로 검색"
+        aria-label="보드 검색"
+        maxlength="60"
+      />
+      <button class="btn primary" type="button" @click="create">+ 새 보드</button>
+      <div class="page-menu">
+        <button
+          class="menu-btn"
+          type="button"
+          title="메뉴"
+          aria-label="메뉴"
+          aria-haspopup="true"
+          :aria-expanded="pageMenuOpen"
+          @click="pageMenuOpen = !pageMenuOpen"
+        >
+          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+            <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+        <div v-if="pageMenuOpen" class="pop page-pop" role="menu">
+          <button role="menuitem" :disabled="store.boards.length === 0 && store.templates.length === 0" @click="backup">
+            전체 백업 <span class="muted">모든 보드·템플릿을 파일로</span>
+          </button>
+          <button role="menuitem" @click="((pageMenuOpen = false), restoreInput?.click())">
+            백업에서 가져오기 <span class="muted">지금 목록에 추가</span>
+          </button>
+        </div>
+        <input ref="restoreInput" type="file" accept=".json,application/json" hidden @change="onRestoreFile" />
+      </div>
+    </div>
 
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
 
     <p v-if="store.boards.length === 0" class="muted empty">
       아직 보드가 없습니다.<br />
-      보드를 만들고 할 일을 슬롯에 배치해 순서대로 처리해 보세요.
+      "+ 새 보드"로 보드를 만들고 할 일을 슬롯에 배치해 순서대로 처리해 보세요.
     </p>
 
     <template v-else>
@@ -141,14 +255,33 @@ function fmt(ms: number) {
           <button class="btn small" @click="toggleSelecting">취소</button>
         </template>
         <template v-else>
-          <span class="muted">보드 {{ store.boards.length }}개</span>
+          <span class="muted">
+            {{ query.trim() ? `검색 결과 ${shownBoards.length}개 / 전체 ${store.boards.length}개` : `보드 ${store.boards.length}개` }}
+          </span>
           <span class="spacer" />
+          <div class="sort" role="group" aria-label="정렬">
+            <button
+              v-for="x in SORTS"
+              :key="x.key"
+              type="button"
+              :class="{ on: sortKey === x.key }"
+              :aria-pressed="sortKey === x.key"
+              @click="(setSort(x.key), rememberSort())"
+            >
+              {{ x.label }}
+            </button>
+          </div>
+          <button class="btn small" type="button" :title="`정렬 방향 바꾸기 (지금: ${sortHint})`" @click="((sortDesc = !sortDesc), rememberSort())">
+            {{ sortDesc ? '↓' : '↑' }} {{ sortHint }}
+          </button>
           <button class="btn small" @click="toggleSelecting">선택 삭제…</button>
         </template>
       </div>
 
+      <p v-if="shownBoards.length === 0" class="muted empty">"{{ query.trim() }}"에 맞는 보드가 없습니다.</p>
+
       <ul class="boards">
-        <li v-for="b in store.boards" :key="b.id" :class="{ picked: selected.has(b.id) }">
+        <li v-for="b in shownBoards" :key="b.id" :class="{ picked: selected.has(b.id) }">
           <input
             v-if="selecting"
             type="checkbox"
@@ -159,8 +292,11 @@ function fmt(ms: number) {
           />
           <button class="board" type="button" @click="openBoard(b.id)">
             <strong>{{ b.name }}</strong>
-            <span class="muted">{{ b.doneCount }} / {{ b.nodeCount }} 완료 · {{ fmt(b.updatedAt) }}</span>
-            <span class="bar"><span :style="{ width: (b.nodeCount ? (b.doneCount / b.nodeCount) * 100 : 0) + '%' }" /></span>
+            <span class="muted">
+              {{ b.nodeCount ? `작업 ${b.nodeCount}개 중 ${b.doneCount}개 완료` : '작업 없음' }}
+            </span>
+            <span class="muted dates">생성 {{ fmt(b.createdAt) }} · 수정 {{ fmt(b.updatedAt) }}</span>
+            <span v-if="b.nodeCount" class="bar"><span :style="{ width: (b.doneCount / b.nodeCount) * 100 + '%' }" /></span>
           </button>
 
           <div v-if="!selecting" class="more-wrap">
@@ -239,10 +375,71 @@ function fmt(ms: number) {
   margin: 0 auto;
   padding: 24px 16px;
 }
-.new {
+.top {
   display: flex;
   gap: 8px;
+  align-items: center;
   margin-bottom: 24px;
+}
+.search {
+  flex: 1;
+  min-width: 0;
+}
+.page-menu {
+  position: relative;
+  flex: none;
+}
+.menu-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.menu-btn:hover,
+.menu-btn[aria-expanded='true'] {
+  background: var(--surface-2);
+}
+.page-pop {
+  min-width: 290px;
+}
+.page-pop button {
+  display: flex !important;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.page-pop button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.page-pop .muted,
+.dates {
+  font-size: 12px;
+}
+.sort {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sort button {
+  padding: 3px 10px;
+  border: 0;
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+}
+.sort button + button {
+  border-left: 1px solid var(--border);
+}
+.sort button.on {
+  background: var(--accent);
+  color: #fff;
 }
 .notice {
   margin: -8px 0 16px;

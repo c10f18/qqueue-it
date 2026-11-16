@@ -39,7 +39,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 <template>
   <header v-if="route.name === 'list'" class="app-bar">
     <span class="logo">뀨잇</span>
-    <span class="muted">QQueue It — 순서로 관리하는 할 일</span>
+    <span class="muted">QQueue It</span>
   </header>
 
   <div class="content">

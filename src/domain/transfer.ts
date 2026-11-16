@@ -2,7 +2,7 @@
 
 import { DomainError, uid } from './core'
 import { MAX_LANES } from './types'
-import type { BoardData, Lane, TaskNode } from './types'
+import type { BoardData, Lane, TaskNode, Template } from './types'
 
 export const EXPORT_FORMAT = 'qqueue-it/board'
 export const EXPORT_VERSION = 1
@@ -95,11 +95,45 @@ export function importBoardData(raw: unknown): BoardData {
       name: board.name.trim() || '가져온 보드',
       slotOrder: [...slotIds.values()],
       settings: { ...settings, showSlotNumbers: true } as BoardData['board']['settings'],
-      createdAt: now,
-      updatedAt: now,
+      createdAt: typeof board.createdAt === 'number' ? board.createdAt : now,
+      updatedAt: typeof board.updatedAt === 'number' ? board.updatedAt : now,
     },
     lanes,
     slots: [...slotIds.values()].map((id) => ({ id, boardId })),
     nodes,
   }
+}
+
+// ── 전체 백업: 모든 보드와 템플릿을 파일 하나로 ─────────────────
+export const BACKUP_FORMAT = 'qqueue-it/backup'
+
+export interface BackupFile {
+  format: typeof BACKUP_FORMAT
+  version: number
+  exportedAt: number
+  boards: BoardData[]
+  templates: Template[]
+}
+
+export function exportBackup(boards: BoardData[], templates: Template[]): BackupFile {
+  return { format: BACKUP_FORMAT, version: EXPORT_VERSION, exportedAt: Date.now(), boards, templates }
+}
+
+/**
+ * 백업 파일(또는 보드 하나짜리 내보내기 파일)을 읽어 새로 추가할 보드·템플릿 목록으로 바꾼다.
+ * 모든 id를 새로 발급하므로 지금 있는 보드를 덮어쓰지 않는다. 하나라도 잘못되면 전체를 거부한다.
+ */
+export function importBackup(raw: unknown): { boards: BoardData[]; templates: Template[] } {
+  if (!isObject(raw)) fail('JSON 객체가 아닙니다.')
+  if (raw.format !== BACKUP_FORMAT) return { boards: [importBoardData(raw)], templates: [] }
+  if (!Array.isArray(raw.boards)) fail('보드 목록이 없습니다.')
+  const boards = raw.boards.map((b) => importBoardData(b))
+  const now = Date.now()
+  const templates = (Array.isArray(raw.templates) ? raw.templates : []).map((t): Template => {
+    if (!isObject(t) || typeof t.name !== 'string' || !isObject(t.snapshot) || !Array.isArray(t.snapshot.lanes) || !Array.isArray(t.snapshot.nodes)) {
+      fail('템플릿 정보가 잘못되었습니다.')
+    }
+    return { ...(structuredClone(t) as unknown as Template), id: uid(), updatedAt: now }
+  })
+  return { boards, templates }
 }
