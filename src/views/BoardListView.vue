@@ -266,21 +266,8 @@ function fmt(ms: number) {
           <span class="muted">
             {{ query.trim() ? `검색 결과 ${shownBoards.length}개 / 전체 ${store.boards.length}개` : `보드 ${store.boards.length}개` }}
           </span>
-          <button
-            class="icon-btn"
-            type="button"
-            :class="{ on: searchOpen }"
-            :title="searchOpen ? '검색 닫기' : '검색'"
-            :aria-label="searchOpen ? '검색 닫기' : '검색'"
-            :aria-expanded="searchOpen"
-            @click="toggleSearch"
-          >
-            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
-              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            </svg>
-          </button>
-          <label v-if="searchOpen" class="search-box">
+          <!-- 돋보기 하나가 늘어나 검색 칸이 된다. 돋보기를 다시 누르면 도로 줄어든다. -->
+          <div class="search" :class="{ open: searchOpen }">
             <input
               ref="searchInput"
               v-model="query"
@@ -288,13 +275,36 @@ function fmt(ms: number) {
               placeholder="검색"
               aria-label="보드 검색"
               maxlength="60"
-              @keydown.esc.prevent="toggleSearch"
+              :tabindex="searchOpen ? 0 : -1"
+              @keydown.esc.prevent="searchOpen && toggleSearch()"
             />
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
-              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            </svg>
-          </label>
+            <button
+              v-if="searchOpen && query"
+              class="clear"
+              type="button"
+              title="검색어 지우기"
+              aria-label="검색어 지우기"
+              @click="((query = ''), searchInput?.focus())"
+            >
+              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5" fill="currentColor" />
+                <path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="var(--surface)" stroke-width="1.4" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button
+              class="glass"
+              type="button"
+              :title="searchOpen ? '검색 닫기' : '검색'"
+              :aria-label="searchOpen ? '검색 닫기' : '검색'"
+              :aria-expanded="searchOpen"
+              @click="toggleSearch"
+            >
+              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+                <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
           <span class="spacer" />
           <div class="sort" role="group" aria-label="정렬">
             <button
@@ -416,46 +426,63 @@ function fmt(ms: number) {
   align-items: center;
   margin-bottom: 24px;
 }
-/* 돋보기 버튼과, 누르면 열리는 검색 칸(안쪽 오른쪽에도 돋보기) */
-.icon-btn {
-  display: inline-grid;
+/* 검색: 닫혀 있을 때는 돋보기만 한 크기, 열리면 옆으로 늘어나 입력 칸이 된다 */
+.search {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  transition:
+    width 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+.search.open {
+  width: min(240px, 60vw);
+  border-color: var(--border);
+  background: var(--surface);
+}
+.search.open:focus-within {
+  border-color: var(--accent);
+}
+.search input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+.search.open input {
+  padding: 0 4px 0 10px;
+}
+.search button {
+  display: grid;
   flex: none;
   place-items: center;
   width: 28px;
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
 }
-.icon-btn:hover,
-.icon-btn.on {
+.search button:hover {
+  color: var(--text);
+}
+.search:not(.open) .glass:hover {
   background: var(--surface-2);
-  color: var(--text);
 }
-.search-box {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  width: min(240px, 100%);
-  padding: 3px 8px 3px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-dim);
-}
-.search-box:focus-within {
-  border-color: var(--accent);
-}
-.search-box input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  outline: none;
+.search .clear {
+  width: 22px;
 }
 .sort .dir {
   margin-left: 3px;
@@ -484,6 +511,7 @@ function fmt(ms: number) {
 }
 .page-pop button {
   display: flex !important;
+  white-space: nowrap;
   gap: 8px;
   justify-content: space-between;
   align-items: baseline;
