@@ -120,8 +120,8 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
   <div class="groups">
     <div v-for="(g, gi) in groups" :key="g.id" class="group" :class="{ off: g.visible === false }">
       <div class="row">
-        <span class="order" :title="`${gi + 1}번째 (번호가 작을수록 위에 그려집니다)`">{{ gi + 1 }}</span>
-        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="fixed-name" title="첫 그룹은 작업 이름을 표시하며 이름을 바꿀 수 없습니다">
+        <span class="order" :title="`${gi + 1}번째`">{{ gi + 1 }}</span>
+        <span v-if="g.id === NAME_LABEL_GROUP_ID" class="fixed-name" title="작업 이름">
           {{ NAME_LABEL_GROUP_NAME }}
         </span>
         <input
@@ -169,7 +169,7 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
           v-else
           type="button"
           class="icon-btn sm"
-          title="그룹 삭제 (입력한 라벨도 지워집니다)"
+          title="그룹 삭제"
           :aria-label="`${g.name} 그룹 삭제`"
           @click="store.apply((d) => removeLabelGroup(d, g.id))"
         >
@@ -186,8 +186,8 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
               role="radio"
               :class="{ on: g.angle === undefined && g.position === p }"
               :aria-checked="g.angle === undefined && g.position === p"
-              :title="`노드의 ${POSITION_LABEL[p]}`"
-              :aria-label="`노드의 ${POSITION_LABEL[p]}`"
+              :title="`작업의 ${POSITION_LABEL[p]}`"
+              :aria-label="`작업의 ${POSITION_LABEL[p]}`"
               @click="patch(g.id, { position: p })"
             />
             <span
@@ -199,7 +199,7 @@ const POSITION_LABEL: Record<GraphDirection, string> = {
               aria-valuemax="359"
               :aria-valuenow="labelAngle(g)"
               :aria-label="`${g.name} 위치 각도`"
-              title="누른 채 돌려서 각도 조정 (방향키: 1°, Shift+방향키: 15°)"
+              title="각도 조정 (방향키: 1°, Shift+방향키: 15°)"
               @pointerdown.prevent="knobDown(g.id, $event)"
               @pointermove="knobMove(g.id, $event)"
               @pointerup="knobUp"

@@ -133,7 +133,7 @@ describe('노드 생성/수정/복제', () => {
     const d = build(['L', 'M'], [['A', N]])
     const r = createNode(d, 'slot-1', 'lane-M', { name: 'x' }).data
     expect(grid(r)).toEqual([['A', 'x']])
-    expect(() => createNode(r, 'slot-1', 'lane-M')).toThrow(/이미 노드/)
+    expect(() => createNode(r, 'slot-1', 'lane-M')).toThrow(/이미 작업/)
   })
 
   it('위/아래에 추가는 같은 레인에 새 슬롯을 끼운다 (FR-22)', () => {

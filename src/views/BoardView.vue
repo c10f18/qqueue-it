@@ -63,10 +63,10 @@ const viewGraph = ref<InstanceType<typeof QueueGraph> | null>(null)
 const importInput = ref<HTMLInputElement | null>(null)
 type ExportKind = 'json' | 'xlsx' | 'pdf' | 'png' | 'svg'
 const EXPORTS: { kind: ExportKind; label: string; hint: string }[] = [
-  { kind: 'json', label: 'JSON', hint: '보드 전체 (다시 가져올 수 있음)' },
-  { kind: 'xlsx', label: 'Excel (.xlsx)', hint: '작업 목록 표' },
-  { kind: 'pdf', label: 'PDF', hint: '큐 그래프 그림' },
-  { kind: 'png', label: 'PNG', hint: '큐 그래프 그림' },
+  { kind: 'json', label: 'JSON', hint: '보드 전체' },
+  { kind: 'xlsx', label: 'Excel', hint: '작업 목록 표' },
+  { kind: 'pdf', label: 'PDF', hint: '큐 그래프 이미지' },
+  { kind: 'png', label: 'PNG', hint: '큐 그래프 이미지' },
   { kind: 'svg', label: 'SVG', hint: '큐 그래프 벡터' },
 ]
 
@@ -276,7 +276,7 @@ onUnmounted(() => {
             <AppIcon name="menu" :size="18" />
           </button>
           <div v-if="menuOpen" class="menu menu-pop" role="menu">
-            <button role="menuitem" title="지정한 슬롯까지 한 번에 완료 처리" @click="((menuOpen = false), (bulkOpen = true))">일괄 진행…</button>
+            <button role="menuitem" title="지정한 슬롯까지 일괄 완료 처리" @click="((menuOpen = false), (bulkOpen = true))">일괄 진행…</button>
             <span class="menu-title">내보내기</span>
             <button v-for="x in EXPORTS" :key="x.kind" role="menuitem" @click="doExport(x.kind)">
               {{ x.label }} <span class="hint">{{ x.hint }}</span>
@@ -294,7 +294,7 @@ onUnmounted(() => {
         <button class="icon-btn" :disabled="!store.canUndo" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기" @click="store.undo()"><AppIcon name="undo" /></button>
         <button class="icon-btn" :disabled="!store.canRedo" title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행" @click="store.redo()"><AppIcon name="redo" /></button>
 
-        <button class="btn" data-panel-toggle title="테마·그래프(표시·정렬)·노드·라인·레이아웃 설정" @click="togglePanel('settings')"><AppIcon name="settings" /> 설정</button>
+        <button class="btn" data-panel-toggle title="테마·그래프·작업·라벨·라인·레이아웃 설정" @click="togglePanel('settings')"><AppIcon name="settings" /> 설정</button>
 
         <span v-if="inactiveLanes.length" class="inactive">
           <span class="muted">숨긴 카테고리</span>
@@ -310,8 +310,8 @@ onUnmounted(() => {
         </span>
 
         <span class="spacer" />
-        <span class="muted autosaved" title="바꾸는 즉시 저장됩니다. 실수는 되돌리기(Ctrl+Z)로 바로잡으세요">자동 저장</span>
-        <button class="btn primary" title="수정을 마치고 보기 모드로" @click="navigate({ name: 'view', boardId })">완료</button>
+        <span class="muted autosaved" title="자동으로 저장됩니다.">자동 저장</span>
+        <button class="btn primary" title="보기 모드로 전환" @click="navigate({ name: 'view', boardId })">완료</button>
       </template>
     </div>
 
@@ -330,7 +330,7 @@ onUnmounted(() => {
         aria-valuemin="15"
         aria-valuemax="85"
         aria-label="그래프와 카드 영역 크기 조절"
-        title="끌어서 영역 크기 조절"
+        title="끌어서 크기 조절"
         @pointerdown.prevent="resizeStart"
         @pointermove="resizeMove"
         @pointerup="resizing = false"

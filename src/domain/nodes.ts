@@ -77,7 +77,7 @@ export function createNode(
   requireSlot(d, slotId)
   requireLane(d, laneId)
   if (cellNode(d, slotId, laneId)) {
-    throw new DomainError('cell-occupied', '이미 노드가 있는 칸입니다.')
+    throw new DomainError('cell-occupied', '이미 작업이 있는 칸입니다.')
   }
   const node = buildNode(d, slotId, laneId, fields)
   d.nodes.push(node)

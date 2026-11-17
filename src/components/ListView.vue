@@ -66,7 +66,7 @@ const showNumbers = true
       <span class="muted summary">{{ doneCount }} / {{ shownNodes.length }} 완료</span>
     </div>
 
-    <p v-if="rows.length === 0" class="empty muted">표시할 작업이 없습니다. 수정 모드에서 작업을 추가해 보세요.</p>
+    <p v-if="rows.length === 0" class="empty muted">작업 없음</p>
 
     <!-- 레이어별: 슬롯 × 레인 그리드 -->
     <div v-else-if="!flat" class="scroll">

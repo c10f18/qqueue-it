@@ -97,7 +97,7 @@ function save() {
       </div>
 
       <div class="field">
-        <span class="label">단색 (그래프 노드와 카드의 원 색)</span>
+        <span class="label">단색 (그래프 작업과 카드의 원 색)</span>
         <ColorPicker v-model="color" default-label="색 없음" />
       </div>
 
@@ -135,7 +135,7 @@ function save() {
       </div>
 
       <label class="check-row">
-        <input v-model="visible" type="checkbox" /> 뷰·export에 표시
+        <input v-model="visible" type="checkbox" /> 뷰에 표시
       </label>
 
       <div class="actions">

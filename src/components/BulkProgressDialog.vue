@@ -34,7 +34,7 @@ function toggle(id: string) {
     <form class="dialog" @submit.prevent="emit('apply', upTo, [...selected])">
       <h2>일괄 진행</h2>
       <div class="field">
-        <label for="b-slot">이 슬롯까지 완료 처리</label>
+        <label for="b-slot">일괄 완료 처리</label>
         <select id="b-slot" v-model="upTo" class="input">
           <option v-for="o in slotOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
         </select>

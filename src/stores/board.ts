@@ -61,7 +61,7 @@ export const useBoardStore = defineStore('board', () => {
       .then(() => repo.saveBoard(toSave))
       .catch((e) => {
         console.error(e)
-        error.value = '저장에 실패했습니다. 브라우저 저장소를 확인해 주세요.'
+        error.value = '저장에 실패했습니다.'
       })
     return saveQueue
   }

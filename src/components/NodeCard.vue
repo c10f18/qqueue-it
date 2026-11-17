@@ -108,7 +108,7 @@ function onPointerDown(e: PointerEvent) {
         @blur="commit"
       />
       <span v-else class="name" :title="node.name">{{ node.name }}</span>
-      <span v-if="!node.visible" class="muted hidden-mark" title="보기·내보내기에서 숨김"><AppIcon name="eye-off" :size="14" /></span>
+      <span v-if="!node.visible" class="muted hidden-mark" title="뷰에서 숨김"><AppIcon name="eye-off" :size="14" /></span>
       <button
         class="check"
         :class="{ on: isCompleted(node) }"
@@ -127,7 +127,7 @@ function onPointerDown(e: PointerEvent) {
       maxlength="40"
       :value="labelValue(g.id)"
       :placeholder="g.name"
-      :title="g.visible === false ? `${g.name} (숨긴 그룹: 그래프에 표시되지 않음)` : `${g.name} (그래프에서 노드 옆에 표시)`"
+      :title="g.visible === false ? `${g.name} (숨긴 그룹: 그래프에 표시되지 않음)` : g.name"
       :aria-label="g.name"
       @click.stop
       @focus="onLabelFocus(g.id)"

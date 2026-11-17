@@ -220,7 +220,7 @@ async function create() {
 async function clone(id: string) {
   menuId.value = null
   await store.cloneBoard(id)
-  say('보드를 복제했습니다. 진행도와 횟수는 0으로 시작합니다.')
+  say('보드를 복제했습니다.')
 }
 
 // 보드 사각형을 누르면 보기 화면으로 이동한다. 선택 모드에서는 체크만 바뀐다.
@@ -283,8 +283,7 @@ function fmt(ms: number) {
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
 
     <p v-if="store.boards.length === 0" class="muted empty">
-      아직 보드가 없습니다.<br />
-      "+ 새 보드"로 보드를 만들고 할 일을 슬롯에 배치해 순서대로 처리해 보세요.
+      뀨잇
     </p>
 
     <template v-else>
@@ -351,7 +350,7 @@ function fmt(ms: number) {
               type="button"
               :class="{ on: sortKey === x.key }"
               :aria-pressed="sortKey === x.key"
-              :title="sortKey === x.key ? `${x.label} ${sortHint} (누르면 ${sortDesc ? '오름차순' : '내림차순'}으로)` : `${x.label} 순으로 정렬`"
+              :title="sortKey === x.key ? `${x.label} ${sortHint}` : `${x.label} 순으로 정렬`"
               @click="clickSort(x.key)"
             >
               {{ x.label }}<AppIcon v-if="sortKey === x.key" class="dir" :name="sortDesc ? 'down' : 'up'" :size="12" :aria-label="sortHint" />
@@ -430,7 +429,7 @@ function fmt(ms: number) {
     <div v-if="restoreOpen" class="overlay" @pointerdown.self="restoreOpen = false">
       <div class="dialog" role="dialog" aria-label="복구">
         <h2>복구</h2>
-        <p class="muted">백업 파일(.json)의 보드와 템플릿을 되살립니다.</p>
+        <p class="muted">백업 파일(.json)의 보드와 템플릿 데이터를 복구합니다.</p>
 
         <div class="file-row">
           <button type="button" class="btn" @click="restoreInput?.click()">
@@ -466,7 +465,7 @@ function fmt(ms: number) {
           {{
             restoreReplace
               ? `지금 있는 보드 ${store.boards.length}개와 템플릿 ${store.templates.length}개를 모두 지운 뒤 복구합니다. 되돌릴 수 없습니다.`
-              : '지금 있는 보드는 그대로 두고, 백업의 보드를 목록에 더합니다.'
+              : '지금 있는 보드는 그대로 두고, 백업 보드를 목록에 추가합니다.'
           }}
         </p>
         <div class="actions">

@@ -426,7 +426,7 @@ watch(
 
       <div class="btn-group" role="group" aria-label="확대">
         <button title="축소" aria-label="축소" @click="zoomBy(0.8)"><AppIcon name="minus" /></button>
-        <button class="zoom" title="지금 확대 배율. 누르면 100%(설정한 크기 그대로)로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
+        <button class="zoom" title="지금 확대 배율. 누르면 100%로 봅니다" @click="zoomActual">{{ zoomPercent }}%</button>
         <button title="확대" aria-label="확대" @click="zoomBy(1.25)"><AppIcon name="plus" /></button>
       </div>
 
@@ -446,9 +446,9 @@ watch(
           </button>
         </div>
         <div v-if="viewMenuOpen" class="menu view-menu" role="menu">
-          <button role="menuitem" @click="initView">뷰 초기화 <span class="hint">기본 시점(화면에 맞춤)</span></button>
+          <button role="menuitem" @click="initView">뷰 초기화 <span class="hint">기본 뷰</span></button>
           <button v-if="editable" role="menuitem" :disabled="!camera" @click="clearSavedView">
-            저장된 뷰 지우기 <span class="hint">{{ camera ? '보기 모드도 기본 시점으로' : '저장된 뷰 없음' }}</span>
+            저장된 뷰 지우기 <span class="hint">{{ camera ? '보기 모드도 기본 뷰로' : '현재 저장된 뷰 없음' }}</span>
           </button>
         </div>
       </div>
@@ -458,7 +458,7 @@ watch(
           :class="{ on: atSavedView }"
           :title="
             atSavedView
-              ? '지금 시점이 저장된 뷰입니다 (보기 모드에서 이대로 보입니다)'
+              ? '현재 뷰가 저장된 뷰입니다'
               : '뷰 저장: 지금의 확대·이동·회전을 보기 모드에서 보여 줄 뷰로 저장'
           "
           @click="saveView"

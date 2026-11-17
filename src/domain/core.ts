@@ -52,7 +52,7 @@ export function slotIndex(data: BoardData, slotId: string): number {
 
 export function findNode(data: BoardData, nodeId: string): TaskNode {
   const node = data.nodes.find((n) => n.id === nodeId)
-  if (!node) throw new DomainError('node-not-found', `노드를 찾을 수 없습니다: ${nodeId}`)
+  if (!node) throw new DomainError('node-not-found', `작업을 찾을 수 없습니다: ${nodeId}`)
   return node
 }
 

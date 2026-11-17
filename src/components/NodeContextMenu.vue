@@ -64,7 +64,7 @@ onUnmounted(() => {
       <AppIcon name="link" /> 링크 필터 <span class="hint"><AppIcon :name="submenu ? 'chevron-down' : 'chevron-right'" :size="12" /></span>
     </button>
     <div v-if="submenu" class="sub">
-      <p class="muted hint">체크한 카테고리의 다음 노드에 연결</p>
+      <p class="muted hint">체크한 카테고리의 다음 작업에 연결</p>
       <label v-for="l in lanes" :key="l.id">
         <input type="checkbox" :checked="!excluded.has(l.id)" @change="toggleLane(l.id)" />
         {{ l.name }}

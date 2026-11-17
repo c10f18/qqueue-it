@@ -39,8 +39,8 @@ const emit = defineEmits<{ close: []; aligned: []; 'update:layout': [value: Edit
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'theme', label: '테마', hint: '보기 모드의 테마와 방식' },
   { id: 'graph', label: '그래프', hint: '그래프 표시 속성과 정렬' },
-  { id: 'node', label: '노드', hint: '노드 크기·완료 표시' },
-  { id: 'label', label: '라벨', hint: '노드 라벨 그룹' },
+  { id: 'node', label: '작업', hint: '작업 크기·완료 표시' },
+  { id: 'label', label: '라벨', hint: '작업 라벨 그룹' },
   { id: 'line', label: '라인', hint: '연결 화살표' },
   { id: 'layout', label: '레이아웃', hint: '수정 화면의 그래프·카드 배치' },
 ]
@@ -50,13 +50,14 @@ const LAYOUT_GROUPS = [
 ]
 
 // 탭마다 왼쪽 아래에 놓는 "기본값으로": 지금 탭의 내용만 되돌린다.
+const RESET_TEXT = '기본값으로 되돌립니다'
 const RESET_HINT: Record<SettingsTab, string> = {
-  theme: '테마, 방식, 표시 속성을 되돌립니다',
-  graph: '배경 색, 보드 이름 표시, 백분율 표시, 간격을 되돌립니다. 정렬 방향은 그대로 둡니다',
-  node: '노드 크기, 완료 색·표시를 되돌립니다',
-  label: '모든 라벨 그룹의 글꼴·스타일·크기·색을 되돌립니다. 그룹, 이름, 위치, 순서, 입력한 글자는 그대로 둡니다',
-  line: '연결 화살표의 색, 끝 모양, 끝 크기, 선 두께를 되돌립니다',
-  layout: '화면 크기에 맞는 기본 배치로 되돌립니다',
+  theme: RESET_TEXT,
+  graph: RESET_TEXT,
+  node: RESET_TEXT,
+  label: RESET_TEXT,
+  line: RESET_TEXT,
+  layout: RESET_TEXT,
 }
 function resetTab() {
   if (tab.value === 'theme') setList({ skin: undefined, flat: undefined, attrs: undefined })
@@ -102,7 +103,8 @@ const MARKS: { value: Exclude<DoneMark, 'image'>; glyph?: string; icon?: 'check'
   { value: 'none', label: '표시 없음' },
 ]
 // 완료 표시로 쓸 이미지: 정사각형으로 잘라 192px로 줄여 보드에 저장한다.
-const DONE_IMAGE_HINT = '정사각형 이미지 권장, 64×64px 이상 (가운데를 잘라 192×192px로 맞춰 저장)'
+const DONE_IMAGE_HINT = '192×192px 사이즈, 정사각형 이미지 권장'
+const DONE_IMAGE_ADD_HINT = '이미지 추가. 20MB 이하, 64×64px 이상 정사각형 이미지'
 const doneImageInput = ref<HTMLInputElement | null>(null)
 const doneImageError = ref('')
 async function onDoneImage(e: Event) {
@@ -152,7 +154,6 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
 
       <!-- 테마: 보기 모드 리스트의 테마와 방식 -->
       <div v-if="tab === 'theme'" role="tabpanel">
-        <p class="muted intro">보기 모드의 리스트가 어떻게 보일지 정합니다.</p>
         <div class="field">
           <label for="l-skin">테마</label>
           <select id="l-skin" class="input" :value="list.skin ?? 'simple'" @change="setList({ skin: ($event.target as HTMLSelectElement).value })">
@@ -198,7 +199,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
           @change="set({ showBoardName: ($event.target as HTMLInputElement).checked })"
         />
       </label>
-      <label class="switch-row gap" title="켜면 카드에 진행도 슬라이더와 % 숫자가, 그래프 노드에 진행률이 나옵니다. 끄면 완료 체크만 씁니다">
+      <label class="switch-row gap" title="카드에 진행도 슬라이더와 % 숫자가, 그래프 작업에 진행률이 나옵니다.">
         <span>진행도를 백분율(%)로 표시</span>
         <input
           type="checkbox"
@@ -232,7 +233,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
         </div>
 
         <section>
-          <h3>완료된 노드</h3>
+          <h3>완료된 작업</h3>
         <div class="field">
           <span class="label">색</span>
           <ColorPicker :model-value="style.doneColor" default-label="기본 초록" @update:model-value="(v) => set({ doneColor: v })" />
@@ -260,7 +261,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
               class="slot"
               :class="{ on: style.doneMark === 'image' }"
               :aria-checked="style.doneMark === 'image'"
-              :title="style.doneImage ? `내 이미지 (고른 상태에서 다시 누르면 바꾸기). ${DONE_IMAGE_HINT}` : `이미지 추가. ${DONE_IMAGE_HINT}`"
+              :title="style.doneImage ? '내 이미지' : DONE_IMAGE_ADD_HINT"
               :aria-label="style.doneImage ? '내 이미지' : '이미지 추가'"
               @click="clickDoneImage"
             >
@@ -269,7 +270,7 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             </button>
             <input ref="doneImageInput" type="file" accept="image/*" hidden @change="onDoneImage" />
           </div>
-          <span class="muted note">이미지: {{ DONE_IMAGE_HINT }}</span>
+          <span class="muted note">{{ DONE_IMAGE_HINT }}</span>
           <span v-if="doneImageError" class="err">{{ doneImageError }}</span>
         </div>
         </section>
@@ -278,7 +279,6 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
 
       <!-- 라벨: 노드 둘레에 표시하는 글자 그룹 -->
       <div v-else-if="tab === 'label'" role="tabpanel">
-        <p class="muted intro">위에 있는 그룹일수록 그래프에서 위에 그려집니다.</p>
         <LabelGroupsEditor :data="data" />
       </div>
 
@@ -339,7 +339,6 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
 
       <!-- 레이아웃: 수정 화면에서 그래프와 카드를 놓는 방식 -->
       <div v-else role="tabpanel">
-        <p class="muted intro">수정 화면에서 그래프와 카드를 어떻게 놓을지 고릅니다. 이 기기에 기억됩니다.</p>
         <div v-for="group in LAYOUT_GROUPS" :key="group.title" class="field">
           <span class="label">{{ group.title }}</span>
           <div class="slots" role="radiogroup" :aria-label="group.title">
@@ -363,7 +362,6 @@ const HEADS: { value: EdgeHead; glyph: string; label: string }[] = [
             </button>
           </div>
         </div>
-        <p class="muted intro">그래프와 카드를 같이 볼 때는 둘 사이의 경계선을 끌어 크기를 바꿀 수 있습니다.</p>
       </div>
 
       <div class="actions">

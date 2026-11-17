@@ -57,13 +57,12 @@ function setGap(key: 'slotGap' | 'laneGap', e: Event) {
         </template>
       </div>
       <div class="side">
-        <span class="muted">방향을 누르면 그 방향으로 정렬하고 화면에 맞춥니다.</span>
         <button type="button" class="btn small" @click="align(direction)">{{ currentArrow }} 다시 정렬</button>
       </div>
     </div>
 
     <div class="field">
-      <label for="a-slot">노드 간 간격 {{ slotGap }}</label>
+      <label for="a-slot">작업 간격 {{ slotGap }}</label>
       <input
         id="a-slot"
         type="range"
@@ -75,7 +74,7 @@ function setGap(key: 'slotGap' | 'laneGap', e: Event) {
       />
     </div>
     <div class="field">
-      <label for="a-lane">레인 간 간격 {{ laneGap }}</label>
+      <label for="a-lane">카테고리 간격 {{ laneGap }}</label>
       <input
         id="a-lane"
         type="range"

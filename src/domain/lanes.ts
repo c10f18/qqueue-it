@@ -96,7 +96,7 @@ export function deleteLane(
   if (affected.length > 0) {
     if (mode === 'moveTo') {
       if (!targetLaneId || targetLaneId === laneId) {
-        throw new DomainError('invalid-argument', '노드를 옮길 다른 카테고리를 선택해 주세요.')
+        throw new DomainError('invalid-argument', '작업을 옮길 다른 카테고리를 선택해 주세요.')
       }
       requireLane(d, targetLaneId)
       const sorted = [...affected].sort((a, b) => slotIndex(data, a.slotId) - slotIndex(data, b.slotId))
